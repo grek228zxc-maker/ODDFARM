@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk"><head><script src="./engine.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#20382c"><title>ODDFARM 2.1.0 — Graphics & Performance</title>
+<html lang="uk"><head><script src="./engine.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#20382c"><title>ODDFARM 2.1.3 — Terrain Update</title>
 <style>
 :root{--bg:#d9b3a8;--pn:#fbf0d2;--tx:#1d1a24;--ac:#c8472b;color-scheme:light dark;box-sizing:border-box}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--pn:#3a3224;--tx:#f6e9c6}}
@@ -280,8 +280,8 @@ ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 
 
 /* Decorative asset packs removed: clean farm layout. */
-const pathM=mt(0xd7b983),pathG=new THREE.CircleGeometry(1.45,18);
-for(const[x0,y0,x1,y1]of[[800,720,800,560],[800,650,430,590],[860,720,1200,780],[800,560,800,470],[430,590,400,530],[1050,590,1250,420],[800,830,800,920]]){const n=Math.hypot(x1-x0,y1-y0)/17;for(let i=0;i<=n;i++){const m=new THREE.Mesh(pathG,pathM);m.rotation.x=-Math.PI/2;m.position.set(X(x0+(x1-x0)*i/n),.03,Z(y0+(y1-y0)*i/n));m.receiveShadow=true;scene.add(m)}}
+const oldPathMeshes=[];const pathM=mt(0xd7b983),pathG=new THREE.CircleGeometry(1.45,18);
+for(const[x0,y0,x1,y1]of[[800,720,800,560],[800,650,430,590],[860,720,1200,780],[800,560,800,470],[430,590,400,530],[1050,590,1250,420],[800,830,800,920]]){const n=Math.hypot(x1-x0,y1-y0)/17;for(let i=0;i<=n;i++){const m=new THREE.Mesh(pathG,pathM);m.rotation.x=-Math.PI/2;m.position.set(X(x0+(x1-x0)*i/n),.03,Z(y0+(y1-y0)*i/n));m.receiveShadow=true;scene.add(m);oldPathMeshes.push(m)}}
 {const w=grp(X(300),.04,Z(830));const a=new THREE.Mesh(new THREE.CircleGeometry(2.9,32),mt(0x6fb2c0));a.rotation.x=-Math.PI/2;const b=new THREE.Mesh(new THREE.RingGeometry(2.9,3.15,32),new THREE.MeshBasicMaterial({color:0x1d1a24}));b.rotation.x=-Math.PI/2;add(w,a,b)}
 
 /* Alpha 1.7.3: Decorative trees, MegaKit meshes, bushes, rocks, flowers and mushrooms removed. */
@@ -493,6 +493,22 @@ installCustomBeds();
     ground.position.y=-.36;
     ground.material=new THREE.MeshLambertMaterial({color:0x81b65f});
     window.oddfarmStarterPatch=patch;
+    new THREE.GLTFLoader().load('assets/terrain-v3.glb',asset=>{try{
+      asset.scene.updateMatrixWorld(true);
+      const meshes={};asset.scene.traverse(o=>{if(o.isMesh)meshes[o.name]=o});
+      const pick=n=>{const o=meshes[n]||meshes[n.replace('.', '')];if(!o)throw Error('Missing terrain '+n);return o};
+      const top=[pick('Cube.086'),pick('Cube.001')],bottom=[pick('Cube.002'),pick('Cube.319')],path=pick('Plane');
+      const next=new THREE.Group();next.name='ODDFARM_TERRAIN_V3';
+      const routes=[[800,720,800,560],[800,650,430,590],[860,720,1200,780],[800,560,800,470],[430,590,400,530],[1050,590,1250,420],[800,830,800,920]];
+      function onPath(x,z){return routes.some(([a,b,c,d])=>{const ax=X(a),az=Z(b),dx=X(c)-ax,dz=Z(d)-az;const t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz)));return Math.hypot(x-ax-t*dx,z-az-t*dz)<1.3})}
+      const cells=[[],[]],edges=[[],[]],paths=[];
+      for(let i=-extent;i<=extent;i++)for(let j=-extent;j<=extent;j++){const k=(i+j)&1,xy=[i*pitch,j*pitch];cells[k].push(xy);if(Math.abs(i)===extent||Math.abs(j)===extent)edges[k].push(xy);if(onPath(...xy))paths.push(xy)}
+      function batch(source,positions,width,height,topY){if(!positions.length)return;const clone=source.clone(),holder=new THREE.Group();source.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);holder.add(clone);const b=new THREE.Box3().setFromObject(holder),sz=b.getSize(new THREE.Vector3()),ctr=b.getCenter(new THREE.Vector3());holder.scale.set(width/sz.x,height===null?1:height/Math.max(.001,sz.y),width/sz.z);holder.position.set(-ctr.x*holder.scale.x,topY-b.max.y*holder.scale.y,-ctr.z*holder.scale.z);holder.updateMatrixWorld(true);const inst=new THREE.InstancedMesh(clone.geometry,clone.material,positions.length),shift=new THREE.Matrix4(),matrix=new THREE.Matrix4();positions.forEach(([x,z],i)=>{shift.makeTranslation(x,0,z);inst.setMatrixAt(i,matrix.multiplyMatrices(shift,clone.matrixWorld))});inst.instanceMatrix.needsUpdate=true;inst.receiveShadow=true;inst.frustumCulled=false;next.add(inst)}
+      for(let k=0;k<2;k++){batch(top[k],cells[k],pitch,.14,0);batch(bottom[k],edges[k],pitch,.22,-.14)}
+      batch(path,paths,pitch,null,.012);
+      scene.add(next);scene.remove(patch);oldPathMeshes.forEach(o=>o.visible=false);window.oddfarmStarterPatch=next;console.info('Terrain 2.1.3 loaded',paths.length);
+    }catch(e){console.warn('Terrain fallback',e)}},undefined,e=>console.warn('Terrain fallback',e));
+
     note.textContent='✅ Будинок, грядки та блоки землі замінено';setTimeout(()=>note.remove(),9000);
    }catch(err){console.error('ODDFARM asset integration failed',err);note.textContent='❌ Асети: '+err.message;}
   },undefined,err=>{console.error(err);note.textContent='❌ GLB не завантажено. Перевір ZIP і мережу.'});
@@ -501,10 +517,10 @@ installCustomBeds();
 })();
 
 
-/* 2.1.0 authored beds and storage */
+/* 2.1.3 authored beds and storage */
 (function(){
- const status=document.createElement('div');status.style.cssText='position:fixed;top:8px;right:8px;z-index:1000;background:#203329e8;color:white;padding:6px 9px;border-radius:8px;font:11px system-ui;pointer-events:none';document.body.appendChild(status);status.textContent='2.1.0 · Асети: завантаження';let tries=0;
- function load(){if(!THREE.GLTFLoader){if(++tries<100)return setTimeout(load,200);status.textContent='2.1.0 · GLTFLoader недоступний';return;}
+ const status=document.createElement('div');status.style.cssText='position:fixed;top:8px;right:8px;z-index:1000;background:#203329e8;color:white;padding:6px 9px;border-radius:8px;font:11px system-ui;pointer-events:none';document.body.appendChild(status);status.textContent='2.1.3 · Асети: завантаження';let tries=0;
+ function load(){if(!THREE.GLTFLoader){if(++tries<100)return setTimeout(load,200);status.textContent='2.1.3 · GLTFLoader недоступний';return;}
  new THREE.GLTFLoader().load('assets/base-crops-storage.glb',gltf=>{try{
  const groups=Array.from({length:6},()=>new THREE.Group());gltf.scene.updateMatrixWorld(true);
  gltf.scene.traverse(o=>{if(!o.isMesh)return;let n=o;while(n&&!/^ofpart_/.test(n.name))n=n.parent;const match=n&&/^ofpart_(\d)_/.exec(n.name);if(!match)return;const c=o.clone();o.matrixWorld.decompose(c.position,c.quaternion,c.scale);c.castShadow=true;c.receiveShadow=true;groups[+match[1]].add(c)});
@@ -513,8 +529,14 @@ installCustomBeds();
  groups.forEach((g,i)=>{const box=boxes[i],center=box.getCenter(new THREE.Vector3()),sz=box.getSize(new THREE.Vector3());const scale=i===5?Math.min(5.4/sz.x,5.4/sz.z,5.5/sz.y):k;g.scale.setScalar(scale);g.position.set(-center.x*scale,-box.min.y*scale,-center.z*scale)});
  PLM.forEach(m=>{m.newBeds=groups.slice(0,5).map(g=>{const c=g.clone(true);c.visible=false;m.g.add(c);return c})});
  const storage=new THREE.Group();storage.position.set(X(1240),0,Z(850));storage.rotation.y=Math.PI;storage.add(groups[5]);scene.add(storage);SOL.push([1175,785,130,130]);window.oddfarmStorageReady=true;
- status.textContent='2.1.0 · Грядки 5/5 · Склад ✓';window.oddfarmCropReady=true;
- }catch(e){status.textContent='2.1.0 · '+e.message;console.error(e)}},undefined,e=>{status.textContent='2.1.0 · Помилка GLB';console.error(e)});
+ status.textContent='2.1.3 · Грядки 5/5 · Склад: завантаження';window.oddfarmCropReady=true;
+ new THREE.GLTFLoader().load('assets/storage-v2.glb',asset=>{try{
+ const model=asset.scene;model.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(model),sz=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
+ const scale=Math.min(5.2/sz.x,5.2/sz.z,5.5/sz.y);if(!Number.isFinite(scale)||scale<=0)throw Error('Invalid storage bounds');
+ const pivot=new THREE.Group();pivot.add(model);pivot.scale.setScalar(scale);pivot.position.set(-center.x*scale,-box.min.y*scale,-center.z*scale);
+ model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});storage.remove(groups[5]);storage.add(pivot);status.textContent='2.1.3 · Грядки 5/5 · Новий склад ✓';
+ }catch(e){console.warn(e);status.textContent='2.1.3 · Старий склад (fallback)'}},undefined,e=>{console.warn(e);status.textContent='2.1.3 · Старий склад (fallback)'});
+ }catch(e){status.textContent='2.1.3 · '+e.message;console.error(e)}},undefined,e=>{status.textContent='2.1.3 · Помилка GLB';console.error(e)});
  }load();
 })();
 
@@ -617,9 +639,9 @@ addEventListener('keydown',e=>{K[e.code]=1;if(e.code==='Escape'&&modal)closeM();
  if(e.code=='KeyQ'){const o=['c','p','m'];S.sel=o[(o.indexOf(S.sel)+1)%3]}
  const n={Digit1:'c',Digit2:'p',Digit3:'m'}[e.code];if(n)S.sel=n;if(e.code=='KeyB')bagM()});
 addEventListener('keyup',e=>{delete K[e.code]});
-addEventListener('pointerdown',e=>{if(e.pointerType=='mouse'||modal||BUILD_MODE||e.target.closest('button,#m,#ofMobile,#oddfarmUiMenu'))return;if(e.clientX<innerWidth/2&&!JS){JS={id:e.pointerId,ox:e.clientX,oy:e.clientY,x:0,y:0};const s=$('st');s.style.display='block';s.style.left=e.clientX+'px';s.style.top=e.clientY+'px'}});
-addEventListener('pointermove',e=>{if(!JS||e.pointerId!=JS.id)return;let x=(e.clientX-JS.ox)/50,y=(e.clientY-JS.oy)/50;const l=Math.hypot(x,y);if(l>1){x/=l;y/=l}JS.x=x;JS.y=y;$('st').firstElementChild.style.transform=`translate(${x*30}px,${y*30}px)`});
-const endJ=e=>{if(JS&&e.pointerId==JS.id){JS=null;$('st').style.display='none'}};addEventListener('pointerup',endJ);addEventListener('pointercancel',endJ);
+addEventListener('pointerdown',e=>{if(e.pointerType=='mouse'||modal||BUILD_MODE||e.target.closest('button,#m,#ofMobile,#oddfarmUiMenu'))return;if(e.clientX<innerWidth/2&&!JS){if(e.cancelable)e.preventDefault();try{e.target.setPointerCapture(e.pointerId)}catch(_){}JS={id:e.pointerId,ox:e.clientX,oy:e.clientY,x:0,y:0};const s=$('st');s.style.display='block';s.style.left=e.clientX+'px';s.style.top=e.clientY+'px'}});
+addEventListener('pointermove',e=>{if(!JS||e.pointerId!=JS.id)return;if(e.cancelable)e.preventDefault();let x=(e.clientX-JS.ox)/50,y=(e.clientY-JS.oy)/50;const l=Math.hypot(x,y);if(l>1){x/=l;y/=l}JS.x=x;JS.y=y;$('st').firstElementChild.style.transform=`translate(${x*30}px,${y*30}px)`});
+const endJ=e=>{if(JS&&e.pointerId==JS.id){JS=null;$('st').style.display='none'}};addEventListener('pointerup',endJ);addEventListener('pointercancel',endJ);addEventListener('lostpointercapture',endJ);const resetJ=()=>{if(JS){JS=null;$('st').style.display='none'}};addEventListener('blur',resetJ);document.addEventListener('visibilitychange',()=>{if(document.hidden)resetJ()});
 function fit(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);cam3.aspect=w/h;cam3.fov=w/h<1?62:38;cam3.updateProjectionMatrix()}
 fit();addEventListener('resize',fit);addEventListener('orientationchange',()=>setTimeout(fit,200));
 /* ===== THE AWAKENING OF MEDU: QUESTS + FESTIVAL EVENT ===== */
@@ -955,6 +977,7 @@ body.of-building #ofMobile .of-buildtools{display:flex}
   <button type="button" id="ofBag" title="Сумка" aria-label="Сумка">🎒</button>
   <button type="button" id="ofShop" title="Крамниця" aria-label="Крамниця">🏪</button>
   <button type="button" id="ofBuild" title="Будівництво" aria-label="Будівництво">🔨</button>
+  <button type="button" id="ofFull" title="На весь екран" aria-label="На весь екран">⛶</button>
   <button type="button" id="ofQuest" title="Квести" aria-label="Квести">📜</button>
  </div>
  <button type="button" class="of-launch" id="ofLaunch" aria-expanded="false" aria-controls="ofTools" title="Меню" aria-label="Меню">☰</button>
@@ -979,4 +1002,21 @@ body.of-building #ofMobile .of-buildtools{display:flex}
  requestAnimationFrame(sync);
 })();
 </script>
-<style>@media(pointer:coarse),(max-width:800px){#m{z-index:80!important;overscroll-behavior:contain;touch-action:pan-y}#m button{min-height:44px}#ofMobile .of-launch,#ofMobile .of-tools button{width:44px;height:44px}#st{border:2px solid #ffffff55;background:#20382c44}#st i{opacity:.65}body:has(.rush3dHud) #ofMobile,body:has(.rush3dHud) #a,body:has(.rush3dHud) #hot,body:has(.rush3dHud) #oddfarmUiToggle,body:has(.rush3dHud) #oddfarmRotationToggle{display:none!important}body:has(#m[style*="block"]) #ofMobile{visibility:hidden}#buildHelp{max-width:48vw;font-size:12px;pointer-events:auto}#buildHelp button{min-height:44px}#rushOverlay .rush3dBottom{bottom:calc(8px + env(safe-area-inset-bottom,0px))}#rushOverlay button{min-height:40px}}</style><script>if('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('./sw.js').catch(console.warn)}</script></body></html>
+<style>@media(pointer:coarse),(max-width:800px){#m{z-index:80!important;overscroll-behavior:contain;touch-action:pan-y}#m button{min-height:44px}#ofMobile .of-launch,#ofMobile .of-tools button{width:44px;height:44px}#st{border:2px solid #ffffff55;background:#20382c44}#st i{opacity:.65}body:has(.rush3dHud) #ofMobile,body:has(.rush3dHud) #a,body:has(.rush3dHud) #hot,body:has(.rush3dHud) #oddfarmUiToggle,body:has(.rush3dHud) #oddfarmRotationToggle{display:none!important}body:has(#m[style*="block"]) #ofMobile{visibility:hidden}#buildHelp{max-width:48vw;font-size:12px;pointer-events:auto}#buildHelp button{min-height:44px}#rushOverlay .rush3dBottom{bottom:calc(8px + env(safe-area-inset-bottom,0px))}#rushOverlay button{min-height:40px}}</style><script>if('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('./sw.js').catch(console.warn)}</script><style>
+html,body{position:fixed;inset:0;width:100%;height:100%;height:100dvh;overflow:hidden;overscroll-behavior:none;touch-action:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+canvas{touch-action:none;overscroll-behavior:none}#m,#rushOverlay:not(:has(.rush3dHud)){overscroll-behavior:contain;max-height:86dvh}#ofInstallHint{position:fixed;z-index:2000;inset:0;background:#101d18bb;display:grid;place-items:center;padding:20px;touch-action:none}#ofInstallHint[hidden]{display:none}#ofInstallHint section{max-width:320px;background:#20382c;color:white;border-radius:18px;padding:20px;font:15px/1.5 system-ui}#ofInstallHint button{margin-top:12px;padding:10px 18px}#ofMobile{right:max(10px,env(safe-area-inset-right))}#a{right:max(12px,env(safe-area-inset-right))}
+</style>
+<div id="ofInstallHint" hidden><section><strong>Гра на весь екран</strong><p>На iPhone відкрий гру в Safari, натисни «Поділитися» → «На початковий екран» → «Додати». Запусти ODDFARM з іконки на екрані.</p><button id="ofHintClose" type="button">Зрозуміло</button></section></div>
+<script>
+(()=>{const hint=document.getElementById('ofInstallHint'),btn=document.getElementById('ofFull');const standalone=()=>navigator.standalone===true||matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches;
+const scrollable=t=>t instanceof Element&&!!t.closest('#m,#rushOverlay:not(:has(.rush3dHud)),input,textarea,select');
+// Keep native scrolling inside menus; cancel browser panning on the game surface.
+document.addEventListener('touchmove',e=>{if(!scrollable(e.target)&&e.cancelable)e.preventDefault()},{passive:false});
+for(const type of ['gesturestart','gesturechange','gestureend'])document.addEventListener(type,e=>{if(e.cancelable)e.preventDefault()},{passive:false});
+document.addEventListener('contextmenu',e=>{if(!scrollable(e.target))e.preventDefault()});
+const refresh=()=>{btn.hidden=standalone();btn.textContent=document.fullscreenElement?'↙':'⛶';};refresh();document.addEventListener('fullscreenchange',()=>{refresh();requestAnimationFrame(fit)});
+btn.addEventListener('click',async()=>{if(standalone())return;try{if(document.fullscreenElement){await document.exitFullscreen();return}const el=document.documentElement;const request=el.requestFullscreen||el.webkitRequestFullscreen;if(request){await request.call(el);return}}catch(e){console.warn('Fullscreen unavailable',e)}hint.hidden=false;});
+document.getElementById('ofHintClose').addEventListener('click',()=>{hint.hidden=true});
+let pending=0;const resize=()=>{cancelAnimationFrame(pending);pending=requestAnimationFrame(()=>{fit()})};window.visualViewport?.addEventListener('resize',resize);window.addEventListener('pageshow',resize);
+})();
+</script></body></html>
