@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk"><head><script src="./engine.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#20382c"><title>ODDFARM 2.1.3 — Terrain Update</title>
+<html lang="uk"><head><script src="./engine.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#20382c"><title>ODDFARM 2.1.4 — Terrain Fix</title>
 <style>
 :root{--bg:#d9b3a8;--pn:#fbf0d2;--tx:#1d1a24;--ac:#c8472b;color-scheme:light dark;box-sizing:border-box}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--pn:#3a3224;--tx:#f6e9c6}}
@@ -456,7 +456,7 @@ installCustomBeds();
     const pitch=2.05,thickness=.20,extent=16;
     const patch=new THREE.Group();
     patch.name='ODDFARM_AUTHORED_CHECKER_GROUND';
-    scene.add(patch);
+    if(!window.oddfarmTerrainReady)scene.add(patch);
     const count=(extent*2+1)**2;
     // Each source tile preserves its original GLB material; alternate the
     // two source variants in a true chessboard pattern.
@@ -490,24 +490,10 @@ installCustomBeds();
       inst.instanceMatrix.needsUpdate=true;
       patch.add(inst);
     });
-    ground.position.y=-.36;
+    if(!window.oddfarmTerrainReady)ground.position.y=-.36;
     ground.material=new THREE.MeshLambertMaterial({color:0x81b65f});
-    window.oddfarmStarterPatch=patch;
-    new THREE.GLTFLoader().load('assets/terrain-v3.glb',asset=>{try{
-      asset.scene.updateMatrixWorld(true);
-      const meshes={};asset.scene.traverse(o=>{if(o.isMesh)meshes[o.name]=o});
-      const pick=n=>{const o=meshes[n]||meshes[n.replace('.', '')];if(!o)throw Error('Missing terrain '+n);return o};
-      const top=[pick('Cube.086'),pick('Cube.001')],bottom=[pick('Cube.002'),pick('Cube.319')],path=pick('Plane');
-      const next=new THREE.Group();next.name='ODDFARM_TERRAIN_V3';
-      const routes=[[800,720,800,560],[800,650,430,590],[860,720,1200,780],[800,560,800,470],[430,590,400,530],[1050,590,1250,420],[800,830,800,920]];
-      function onPath(x,z){return routes.some(([a,b,c,d])=>{const ax=X(a),az=Z(b),dx=X(c)-ax,dz=Z(d)-az;const t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz)));return Math.hypot(x-ax-t*dx,z-az-t*dz)<1.3})}
-      const cells=[[],[]],edges=[[],[]],paths=[];
-      for(let i=-extent;i<=extent;i++)for(let j=-extent;j<=extent;j++){const k=(i+j)&1,xy=[i*pitch,j*pitch];cells[k].push(xy);if(Math.abs(i)===extent||Math.abs(j)===extent)edges[k].push(xy);if(onPath(...xy))paths.push(xy)}
-      function batch(source,positions,width,height,topY){if(!positions.length)return;const clone=source.clone(),holder=new THREE.Group();source.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);holder.add(clone);const b=new THREE.Box3().setFromObject(holder),sz=b.getSize(new THREE.Vector3()),ctr=b.getCenter(new THREE.Vector3());holder.scale.set(width/sz.x,height===null?1:height/Math.max(.001,sz.y),width/sz.z);holder.position.set(-ctr.x*holder.scale.x,topY-b.max.y*holder.scale.y,-ctr.z*holder.scale.z);holder.updateMatrixWorld(true);const inst=new THREE.InstancedMesh(clone.geometry,clone.material,positions.length),shift=new THREE.Matrix4(),matrix=new THREE.Matrix4();positions.forEach(([x,z],i)=>{shift.makeTranslation(x,0,z);inst.setMatrixAt(i,matrix.multiplyMatrices(shift,clone.matrixWorld))});inst.instanceMatrix.needsUpdate=true;inst.receiveShadow=true;inst.frustumCulled=false;next.add(inst)}
-      for(let k=0;k<2;k++){batch(top[k],cells[k],pitch,.14,0);batch(bottom[k],edges[k],pitch,.22,-.14)}
-      batch(path,paths,pitch,null,.012);
-      scene.add(next);scene.remove(patch);oldPathMeshes.forEach(o=>o.visible=false);window.oddfarmStarterPatch=next;console.info('Terrain 2.1.3 loaded',paths.length);
-    }catch(e){console.warn('Terrain fallback',e)}},undefined,e=>console.warn('Terrain fallback',e));
+    if(!window.oddfarmTerrainReady)window.oddfarmStarterPatch=patch;
+
 
     note.textContent='✅ Будинок, грядки та блоки землі замінено';setTimeout(()=>note.remove(),9000);
    }catch(err){console.error('ODDFARM asset integration failed',err);note.textContent='❌ Асети: '+err.message;}
@@ -517,10 +503,33 @@ installCustomBeds();
 })();
 
 
+/* Independent terrain loader */
+(function(){
+ const status=document.createElement('div');status.style.cssText='position:fixed;top:34px;right:8px;z-index:1001;background:#203329e8;color:white;padding:5px 8px;border-radius:6px;font:11px system-ui;pointer-events:none';document.body.appendChild(status);status.textContent='Земля: завантаження';
+ const fail=e=>{console.error('Terrain',e);status.textContent='Земля: '+(e.message||'GLB не завантажено');};
+ let tries=0;function load(){if(!THREE.GLTFLoader){if(++tries<100)return setTimeout(load,200);return fail(Error('GLTFLoader недоступний'));}const pitch=2.05,extent=16;
+    new THREE.GLTFLoader().load('assets/terrain-v4.glb',asset=>{try{
+      asset.scene.updateMatrixWorld(true);
+      const meshes={};asset.scene.traverse(o=>{if(o.isMesh)meshes[o.name]=o});
+      const pick=n=>{const o=meshes[n];if(!o)throw Error('Missing terrain '+n);return o};
+      const top=[pick('terrain_top_a'),pick('terrain_top_b')],bottom=[pick('terrain_bottom_a'),pick('terrain_bottom_b')],path=pick('terrain_path');
+      const next=new THREE.Group();next.name='ODDFARM_TERRAIN_V3';
+      const routes=[[800,720,800,560],[800,650,430,590],[860,720,1200,780],[800,560,800,470],[430,590,400,530],[1050,590,1250,420],[800,830,800,920]];
+      function onPath(x,z){return routes.some(([a,b,c,d])=>{const ax=X(a),az=Z(b),dx=X(c)-ax,dz=Z(d)-az;const t=Math.max(0,Math.min(1,((x-ax)*dx+(z-az)*dz)/(dx*dx+dz*dz)));return Math.hypot(x-ax-t*dx,z-az-t*dz)<1.3})}
+      const cells=[[],[]],edges=[[],[]],paths=[];
+      for(let i=-extent;i<=extent;i++)for(let j=-extent;j<=extent;j++){const k=(i+j)&1,xy=[i*pitch,j*pitch];cells[k].push(xy);if(Math.abs(i)===extent||Math.abs(j)===extent)edges[k].push(xy);if(onPath(...xy))paths.push(xy)}
+      function batch(source,positions,width,height,topY){if(!positions.length)return;const clone=source.clone(),holder=new THREE.Group();source.matrixWorld.decompose(clone.position,clone.quaternion,clone.scale);holder.add(clone);const b=new THREE.Box3().setFromObject(holder),sz=b.getSize(new THREE.Vector3()),ctr=b.getCenter(new THREE.Vector3());holder.scale.set(width/sz.x,height===null?1:height/Math.max(.001,sz.y),width/sz.z);holder.position.set(-ctr.x*holder.scale.x,topY-b.max.y*holder.scale.y,-ctr.z*holder.scale.z);holder.updateMatrixWorld(true);const inst=new THREE.InstancedMesh(clone.geometry,clone.material,positions.length),shift=new THREE.Matrix4(),matrix=new THREE.Matrix4();positions.forEach(([x,z],i)=>{shift.makeTranslation(x,0,z);inst.setMatrixAt(i,matrix.multiplyMatrices(shift,clone.matrixWorld))});inst.instanceMatrix.needsUpdate=true;inst.receiveShadow=true;inst.frustumCulled=false;next.add(inst)}
+      for(let k=0;k<2;k++){batch(top[k],cells[k],pitch,.14,0);batch(bottom[k],edges[k],pitch,1.0,-.14)}
+      batch(path,paths,pitch,null,.035);
+      scene.add(next);if(window.oddfarmStarterPatch)scene.remove(window.oddfarmStarterPatch);ground.position.y=-1.16;oldPathMeshes.forEach(o=>o.visible=false);window.oddfarmStarterPatch=next;window.oddfarmTerrainReady=true;status.textContent='Земля 5/5 ✓ · '+paths.length+' плиток стежок';
+    }catch(e){fail(e)}},undefined,e=>fail(e));
+ }load();
+})();
+
 /* 2.1.3 authored beds and storage */
 (function(){
- const status=document.createElement('div');status.style.cssText='position:fixed;top:8px;right:8px;z-index:1000;background:#203329e8;color:white;padding:6px 9px;border-radius:8px;font:11px system-ui;pointer-events:none';document.body.appendChild(status);status.textContent='2.1.3 · Асети: завантаження';let tries=0;
- function load(){if(!THREE.GLTFLoader){if(++tries<100)return setTimeout(load,200);status.textContent='2.1.3 · GLTFLoader недоступний';return;}
+ const status=document.createElement('div');status.style.cssText='position:fixed;top:8px;right:8px;z-index:1000;background:#203329e8;color:white;padding:6px 9px;border-radius:8px;font:11px system-ui;pointer-events:none';document.body.appendChild(status);status.textContent='2.1.4 · Асети: завантаження';let tries=0;
+ function load(){if(!THREE.GLTFLoader){if(++tries<100)return setTimeout(load,200);status.textContent='2.1.4 · GLTFLoader недоступний';return;}
  new THREE.GLTFLoader().load('assets/base-crops-storage.glb',gltf=>{try{
  const groups=Array.from({length:6},()=>new THREE.Group());gltf.scene.updateMatrixWorld(true);
  gltf.scene.traverse(o=>{if(!o.isMesh)return;let n=o;while(n&&!/^ofpart_/.test(n.name))n=n.parent;const match=n&&/^ofpart_(\d)_/.exec(n.name);if(!match)return;const c=o.clone();o.matrixWorld.decompose(c.position,c.quaternion,c.scale);c.castShadow=true;c.receiveShadow=true;groups[+match[1]].add(c)});
@@ -529,14 +538,14 @@ installCustomBeds();
  groups.forEach((g,i)=>{const box=boxes[i],center=box.getCenter(new THREE.Vector3()),sz=box.getSize(new THREE.Vector3());const scale=i===5?Math.min(5.4/sz.x,5.4/sz.z,5.5/sz.y):k;g.scale.setScalar(scale);g.position.set(-center.x*scale,-box.min.y*scale,-center.z*scale)});
  PLM.forEach(m=>{m.newBeds=groups.slice(0,5).map(g=>{const c=g.clone(true);c.visible=false;m.g.add(c);return c})});
  const storage=new THREE.Group();storage.position.set(X(1240),0,Z(850));storage.rotation.y=Math.PI;storage.add(groups[5]);scene.add(storage);SOL.push([1175,785,130,130]);window.oddfarmStorageReady=true;
- status.textContent='2.1.3 · Грядки 5/5 · Склад: завантаження';window.oddfarmCropReady=true;
+ status.textContent='2.1.4 · Грядки 5/5 · Склад: завантаження';window.oddfarmCropReady=true;
  new THREE.GLTFLoader().load('assets/storage-v2.glb',asset=>{try{
  const model=asset.scene;model.updateMatrixWorld(true);const box=new THREE.Box3().setFromObject(model),sz=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());
  const scale=Math.min(5.2/sz.x,5.2/sz.z,5.5/sz.y);if(!Number.isFinite(scale)||scale<=0)throw Error('Invalid storage bounds');
  const pivot=new THREE.Group();pivot.add(model);pivot.scale.setScalar(scale);pivot.position.set(-center.x*scale,-box.min.y*scale,-center.z*scale);
- model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});storage.remove(groups[5]);storage.add(pivot);status.textContent='2.1.3 · Грядки 5/5 · Новий склад ✓';
- }catch(e){console.warn(e);status.textContent='2.1.3 · Старий склад (fallback)'}},undefined,e=>{console.warn(e);status.textContent='2.1.3 · Старий склад (fallback)'});
- }catch(e){status.textContent='2.1.3 · '+e.message;console.error(e)}},undefined,e=>{status.textContent='2.1.3 · Помилка GLB';console.error(e)});
+ model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});storage.remove(groups[5]);storage.add(pivot);status.textContent='2.1.4 · Грядки 5/5 · Новий склад ✓';
+ }catch(e){console.warn(e);status.textContent='2.1.4 · Старий склад (fallback)'}},undefined,e=>{console.warn(e);status.textContent='2.1.4 · Старий склад (fallback)'});
+ }catch(e){status.textContent='2.1.4 · '+e.message;console.error(e)}},undefined,e=>{status.textContent='2.1.4 · Помилка GLB';console.error(e)});
  }load();
 })();
 
