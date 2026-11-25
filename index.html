@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Level Ground · Alpha 1.8.4</title>
+<html lang="uk"><head><script src="./engine.js"></script><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="theme-color" content="#20382c"><title>ODDFARM 2.0.2 — Crop Fix</title>
 <style>
 :root{--bg:#d9b3a8;--pn:#fbf0d2;--tx:#1d1a24;--ac:#c8472b;color-scheme:light dark;box-sizing:border-box}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--pn:#3a3224;--tx:#f6e9c6}}
@@ -157,7 +157,7 @@ let S,P={ang:0,x:800,y:720,f:1,w:0,dir:0,act:0,mv:0},cam={x:800,y:620},K={},JS=n
 function fresh(){return{coin:40,inv:{sc:3,sp:0,sm:0,c:0,p:0,m:0,honey:0,spore:0,jam:0},pl:PL.map(()=>({c:null,t:0})),cr:CRE.map((c,i)=>({u:i==0,prodAt:0,x:c.x,y:c.y,tx:c.x,ty:c.y,w:0,f:1,wt:0,job:'rest',wk:0,hunger:85,energy:90,mood:80,bond:10,life:'wander',social:0,careAt:0})),hv:0,dev:0,up:{},build:{},serAt:0,ser:0,sel:'c',fl:[],toast:'',tt:0}}
 function safeCount(v){const n=Number(v);return Number.isFinite(n)?Math.max(0,Math.floor(n)):0}
 function normalizeEconomy(){
- const n=Number(S.coin);S.coin=Number.isFinite(n)?Math.max(0,Math.floor(n)):40;
+ const n=Number(S.coin);S.coin=S.coin!==null&&Number.isFinite(n)?Math.max(0,Math.floor(n)):40;
  if(!S.inv||typeof S.inv!=='object')S.inv={};
  for(const k of [...Object.keys(CR),...Object.keys(PD),...Object.keys(CR).map(k=>'s'+k)])S.inv[k]=safeCount(S.inv[k]);
 }
@@ -235,11 +235,10 @@ function upd(dt){
  else if(c.life==='sleep'||c.life==='eat'){c.tx=c.x;c.ty=c.y;c.wt=2}
   else if(['farm','wood','stone','mush'].includes(c.job))work(c);
  else if(c.wt<=0){c.tx=R(1030,1490);c.ty=R(590,930);c.wt=R(2,5)}const dx=c.tx-c.x,dy=c.ty-c.y,d=Math.hypot(dx,dy);if(d>6){const k=Math.min(d,CRE[i].sp*dt)/d;c.x+=dx*k;c.y+=dy*k;c.w+=dt*8;if(dx)c.f=dx<0?-1:1}});
- if(modal||BUILD_MODE)return;
+ if(modal||BUILD_MODE||(typeof rush!=='undefined'&&rush&&rush.phase==='playing')){engine.vx=engine.vy=0;P.mv=0;return;}
  let dx=(K.KeyD||K.ArrowRight?1:0)-(K.KeyA||K.ArrowLeft?1:0),dy=(K.KeyS||K.ArrowDown?1:0)-(K.KeyW||K.ArrowUp?1:0);if(JS){dx=JS.x;dy=JS.y}
- const l=Math.hypot(dx,dy);if(l>1){dx/=l;dy/=l}P.mv=l>.1?1:0;
- if(P.mv){P.ang=Math.atan2(dx,dy);P.x+=dx*250*dt;P.y+=dy*250*dt;P.w+=dt*11;if(Math.abs(dx)>=Math.abs(dy)){P.dir=1;P.f=dx<0?-1:1}else P.dir=dy<0?2:0}
- P.x=Math.max(35,Math.min(S.explore&&S.explore.bridge?2590:1680,P.x));P.y=Math.max(65,Math.min(1180,P.y));for(const r of SOL)push(P,r,14)}
+ engine.move(P,dx,dy,dt,p=>{p.x=Math.max(35,Math.min(S.explore&&S.explore.bridge?2590:1680,p.x));p.y=Math.max(65,Math.min(1180,p.y));for(const r of SOL)push(p,r,14)});}
+
 function sermon(){if(S.ser>0||Date.now()<S.serAt)return;S.ser=6;S.serAt=Date.now()+45000;tz('Проповідь починається…');closeM()}
 function upg(id){const u=UPG.find(q=>q.id==id);if(u&&!S.up[id]&&S.dev>=u.cost){S.dev-=u.cost;S.up[id]=1;tz('Покращення: '+u.n);save()}}
 function work(c){const np=NP();let tg=-1;for(let k=0;k<np;k++)if(S.pl[k].c&&stage(S.pl[k])==3){tg=k;break}
@@ -254,7 +253,7 @@ function shrineR(){const cd=Math.max(0,Math.ceil((S.serAt-Date.now())/1000));$('
    Gameplay remains in original logical coordinates, so saves and interactions survive. */
 const BASE_SPREAD=1.6;
 const X=x=>(x-800)/40*BASE_SPREAD,Z=y=>(y-600)/40*BASE_SPREAD;
-const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;document.body.prepend(renderer.domElement);
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,matchMedia("(pointer:coarse)").matches?1.35:2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;document.body.prepend(renderer.domElement);
 const scene=new THREE.Scene();scene.fog=new THREE.Fog(0xd9b3a8,65,165);
 const cam3=new THREE.PerspectiveCamera(38,1,.5,300);
 scene.add(new THREE.HemisphereLight(0xfff0d8,0x6a5a7c,.95));
@@ -432,7 +431,7 @@ installCustomBeds();
     const bed=makePrefab(groups.bed,3.6,2.15,1.25);
     const beds=window.oddfarmBeds;if(!beds||!beds.length)throw Error('Не знайдено грядки');
     beds.forEach(m=>{m.assetBed=bed.clone(true);m.g.add(m.assetBed);
-      for(const c of [...m.g.children])if(c!==m.assetBed)c.visible=false;
+      for(const c of [...m.g.children])if(c!==m.assetBed&&!m.authoredGrowth?.includes(c))c.visible=false;
     });
     // Keep crop-state mechanics: only the new bed base stays visible; stage foliage remains visible.
     // The custom bed's mesh replaces the old brown base, while the original crop states update normally.
@@ -501,6 +500,23 @@ installCustomBeds();
  if(THREE.GLTFLoader)ready();else{const js=document.createElement('script');js.src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';js.onload=ready;js.onerror=()=>note.textContent='❌ Не завантажився GLTFLoader';document.head.appendChild(js)}
 })();
 
+
+/* Independent crop asset loader, with visible status and retry. */
+(function(){
+ const status=document.createElement('div');status.style.cssText='position:fixed;top:8px;right:8px;z-index:1000;background:#203329e8;color:white;padding:6px 9px;border-radius:8px;font:11px system-ui;pointer-events:none';document.body.appendChild(status);status.textContent='2.0.2 · Грядки: завантаження';
+ let tries=0;
+ function load(){if(!THREE.GLTFLoader){if(++tries<100)return setTimeout(load,200);status.textContent='2.0.2 · GLTFLoader недоступний';return;}
+ new THREE.GLTFLoader().load('assets/crop-growth.glb?v=202',gltf=>{try{
+ const groups=Array.from({length:4},()=>new THREE.Group());gltf.scene.updateMatrixWorld(true);
+ gltf.scene.traverse(o=>{if(!o.isMesh)return;const match=/growth_(\d)_mat_/.exec(o.name)||/growth_(\d)_mat_/.exec(o.geometry.name||'');if(!match)return;const c=o.clone();o.matrixWorld.decompose(c.position,c.quaternion,c.scale);c.castShadow=true;c.receiveShadow=true;groups[+match[1]].add(c)});
+ if(groups.some(g=>!g.children.length))throw Error('Не знайдено всі 4 стани');
+ const box=new THREE.Box3().setFromObject(groups[0]),size=box.getSize(new THREE.Vector3()),center=box.getCenter(new THREE.Vector3());const k=Math.min(3.6/size.x,2.15/size.z);
+ groups.forEach(g=>{g.scale.setScalar(k);g.position.set(-center.x*k,-box.min.y*k,-center.z*k)});
+ PLM.forEach(m=>{m.authoredGrowth=groups.map(g=>{const c=g.clone(true);c.visible=false;m.g.add(c);return c})});
+ status.textContent='2.0.2 · Грядки 4/4 ✓';window.oddfarmCropReady=true;
+ }catch(e){status.textContent='2.0.2 · '+e.message;console.error(e)}},undefined,e=>{status.textContent='2.0.2 · Помилка crop-growth.glb';console.error(e)});
+ }load();
+})();
 
 /* ODDFARM Alpha 1.8.5 — independently rotate the house and each farm plot. */
 (function installFarmRotation(){
@@ -575,7 +591,9 @@ function sync(dt){BLM.forEach((o,i)=>{o.house.visible=!!S.build[BUILD_SCENE[i].i
   const visualStage=!p.c?0:(p.c==='c'&&prog(p)>=1?3:(prog(p)>=.5?2:1));
   if(m.bedState!==visualStage){m.bedState=visualStage;if(m.bedModels)m.bedModels.forEach((bed,k)=>bed.visible=!m.assetBed && k===visualStage);}
   if(m.key!=p.c){m.crops.forEach(c=>m.g.remove(c));m.crops=[];m.key=p.c;if(p.c)for(let k=-1;k<2;k++){const c=cropMesh(p.c);c.position.set(k*1.1,.25,.2);m.g.add(c);m.crops.push(c)}}
-  if(p.c){const st=stage(p),q=prog(p);m.crops.forEach((c,k)=>{c.visible=!(p.c==='c');const u=c.userData;u.mound.visible=false;u.lv.visible=st>=1;u.veg.visible=st>=2;u.face.visible=st==3;const sc=st==1?.45:st==2?.5+q*.4:1;u.lv.scale.setScalar(st==1?.6:st==2?.8:1);u.veg.scale.setScalar(sc);c.position.y=.25+(st==3?Math.abs(Math.sin(T*3+k))*.06:0);c.rotation.z=Math.sin(T*2+k+i)*.03})}});
+  const authored=!!m.authoredGrowth&&p.c==='c';
+  if(m.authoredGrowth){const q=authored?prog(p):0;const idx=q>=1?3:q>=.7?2:q>=.3?1:0;m.authoredGrowth.forEach((g,k)=>g.visible=authored&&k===idx);if(m.assetBed)m.assetBed.visible=!authored;if(authored&&m.bedModels)m.bedModels.forEach(g=>g.visible=false);}
+  if(p.c){const st=stage(p),q=prog(p);m.crops.forEach((c,k)=>{c.visible=!authored&&(!!m.assetBed||p.c!=='c');const u=c.userData;u.mound.visible=false;u.lv.visible=st>=1;u.veg.visible=st>=2;u.face.visible=st==3;const sc=st==1?.45:st==2?.5+q*.4:1;u.lv.scale.setScalar(st==1?.6:st==2?.8:1);u.veg.scale.setScalar(sc);c.position.y=.25+(st==3?Math.abs(Math.sin(T*3+k))*.06:0);c.rotation.z=Math.sin(T*2+k+i)*.03})}});
  TRM.forEach((t,i)=>{t.rotation.z=Math.sin(T*.8+i)*.025});
  SH.L.intensity=1.3+Math.sin(T*9)*.15+(S.ser>0?1:0);SH.ring.forEach((m,i)=>{m.material.opacity=.55+.15*Math.sin(T*2)+(S.ser>0?.3:0)});SH.hex.rotation.y=T*.2;SH.ban.forEach((b,i)=>{b.rotation.y=Math.sin(T*2+i*2)*.25});
  CRM.forEach((r,i)=>{const c=S.cr[i];r.g.visible=!!c.u;if(!c.u)return;const X0=X(c.x),Z0=Z(c.y),dx=X0-r.g.position.x,dz=Z0-r.g.position.z;if(Math.hypot(dx,dz)>.002){r.ang=Math.atan2(dx,dz)}r.g.position.x=X0;r.g.position.z=Z0;if(r.ang!==undefined){let a=r.ang-r.g.rotation.y;a=Math.atan2(Math.sin(a),Math.cos(a));r.g.rotation.y+=a*Math.min(1,dt*10)}
@@ -583,14 +601,14 @@ function sync(dt){BLM.forEach((o,i)=>{o.house.visible=!!S.build[BUILD_SCENE[i].i
   const rd=c.prodAt&&Date.now()>=c.prodAt,e=c.life==='sleep'?'💤':c.hunger<25?'🍽️':c.energy<25?'⚡':c.mood<35?'😟':c.prodAt?(rd?PD[CRE[i].pr].e:null):c.life==='social'?'💕':'🥕';r.sp.visible=!!e;if(e){r.sp.material.map=bubTex(e);r.sp.material.needsUpdate=true;r.sp.position.set(0,r.bh+Math.sin(T*4)*.1,0)}});
  for(const f of S.fl){if(!f.sp){f.sp=txtSprite(f.s);scene.add(f.sp)}f.sp.position.set(X(f.x),2.8+f.t*2.2,Z(f.y));f.sp.material.opacity=Math.max(0,1-f.t/1.3)}
  const n=near();RING.visible=!!n&&!modal;if(n){RING.position.set(X(n.x),.08,Z(n.y));RING.scale.setScalar(1+.08*Math.sin(T*6))}
- const tx=X(P.x),tz_=Z(P.y);cam3.position.lerp(new THREE.Vector3(tx*.9,21,tz_+19),Math.min(1,dt*4));cam3.lookAt(tx*.9,1.2,tz_-1);sun.position.set(tx-12,24,tz_+10);sun.target.position.set(tx,0,tz_)}
+ const tx=X(P.x),tz_=Z(P.y);engine.camera(cam3,tx,tz_,dt);sun.position.set(tx-12,24,tz_+10);sun.target.position.set(tx,0,tz_)}
 /* ===== HUD (DOM) ===== */
 const HU={};function setT(id,v){if(HU[id]!==v){HU[id]=v;$(id).textContent=v}}
 $('hot').innerHTML=['c','p','m'].map((k,i)=>`<button class="slot" data-sel="${k}"><span>${CR[k].e}</span><b id="sl${k}"></b><i>${i+1}</i></button>`).join('');
 $('hot').addEventListener('click',e=>{const b=e.target.closest('[data-sel]');if(b)S.sel=b.dataset.sel});
 function hudU(){setT('coin',S.coin+' 🪙');setT('dev','✦ '+S.dev.toFixed(1));for(const k of['c','p','m']){setT('sl'+k,S.inv['s'+k]);$('hot').querySelector(`[data-sel=${k}]`).classList.toggle('on',S.sel==k)}
  let q='';for(const k of[...Object.keys(CR),...Object.keys(PD)])if(S.inv[k]>0)q+=(CR[k]||PD[k]).e+' '+S.inv[k]+'  ';setT('inv',q);
- const n=near();setT('pr',n&&!modal?(TOUCH?'':'E — ')+n.t:'');$('pr').style.display=n&&!modal?'block':'none';setT('ts',S.tt>0?S.toast:'');$('ts').style.opacity=S.tt>0?1:0;$('tip').style.display=T<25?'block':'none'}
+ const n=near();if(TOUCH){const a=$('a');a.textContent=n?'✦':'·';a.style.opacity=n?'1':'.45';a.setAttribute('aria-label',n?n.t:'Взаємодія');}setT('pr',n&&!modal?(TOUCH?'':'E — ')+n.t:'');$('pr').style.display=n&&!modal?'block':'none';setT('ts',S.tt>0?S.toast:'');$('ts').style.opacity=S.tt>0?1:0;$('tip').style.display=T<25?'block':'none'}
 /* ===== INPUT, LAYOUT, LOOP ===== */
 const TOUCH=matchMedia('(pointer:coarse)').matches;if(TOUCH)$('a').style.display='block';
 $('a').addEventListener('click',act);
@@ -599,7 +617,7 @@ addEventListener('keydown',e=>{K[e.code]=1;if(e.code==='Escape'&&modal)closeM();
  if(e.code=='KeyQ'){const o=['c','p','m'];S.sel=o[(o.indexOf(S.sel)+1)%3]}
  const n={Digit1:'c',Digit2:'p',Digit3:'m'}[e.code];if(n)S.sel=n;if(e.code=='KeyB')bagM()});
 addEventListener('keyup',e=>{delete K[e.code]});
-addEventListener('pointerdown',e=>{if(e.pointerType=='mouse'||modal||e.target.closest('button'))return;if(e.clientX<innerWidth/2&&!JS){JS={id:e.pointerId,ox:e.clientX,oy:e.clientY,x:0,y:0};const s=$('st');s.style.display='block';s.style.left=e.clientX+'px';s.style.top=e.clientY+'px'}});
+addEventListener('pointerdown',e=>{if(e.pointerType=='mouse'||modal||BUILD_MODE||e.target.closest('button,#m,#ofMobile,#oddfarmUiMenu'))return;if(e.clientX<innerWidth/2&&!JS){JS={id:e.pointerId,ox:e.clientX,oy:e.clientY,x:0,y:0};const s=$('st');s.style.display='block';s.style.left=e.clientX+'px';s.style.top=e.clientY+'px'}});
 addEventListener('pointermove',e=>{if(!JS||e.pointerId!=JS.id)return;let x=(e.clientX-JS.ox)/50,y=(e.clientY-JS.oy)/50;const l=Math.hypot(x,y);if(l>1){x/=l;y/=l}JS.x=x;JS.y=y;$('st').firstElementChild.style.transform=`translate(${x*30}px,${y*30}px)`});
 const endJ=e=>{if(JS&&e.pointerId==JS.id){JS=null;$('st').style.display='none'}};addEventListener('pointerup',endJ);addEventListener('pointercancel',endJ);
 function fit(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);cam3.aspect=w/h;cam3.fov=w/h<1?62:38;cam3.updateProjectionMatrix()}
@@ -688,7 +706,7 @@ const _IT08=IT;IT=function(){const a=_IT08();for(const n of NODES){if(n.x>1660&&
 // Dynamic build placement: mouse click on ground or touch, R to rotate, Escape to cancel.
 let BUILD_MODE=false,buildChoice=null,buildRot=0,buildSpot={x:800,y:850},buildValid=false;
 const ray=new THREE.Raycaster(),pointer=new THREE.Vector2(),buildPreview=grp();
-function chooseBuild(id){buildChoice=BUILDABLE.find(b=>b.id===id);if(!buildChoice)return;closeM();BUILD_MODE=true;buildRot=0;buildPreview.visible=true;buildPreview.clear();add(buildPreview,part(BX(buildChoice.id==='lantern'?1:3.6,.3,buildChoice.id==='lantern'?1:3),0x7ee4a4,{y:.18,ol:0,m:new THREE.MeshBasicMaterial({color:0x7ee4a4,transparent:true,opacity:.5,depthWrite:false})}));$('buildHelp').style.display='block';updateBuildHelp();}
+function chooseBuild(id){buildValid=false;buildChoice=BUILDABLE.find(b=>b.id===id);if(!buildChoice)return;closeM();BUILD_MODE=true;buildRot=0;buildPreview.visible=true;buildPreview.clear();add(buildPreview,part(BX(buildChoice.id==='lantern'?1:3.6,.3,buildChoice.id==='lantern'?1:3),0x7ee4a4,{y:.18,ol:0,m:new THREE.MeshBasicMaterial({color:0x7ee4a4,transparent:true,opacity:.5,depthWrite:false})}));$('buildHelp').style.display='block';updateBuildHelp();}
 function stopBuild(){BUILD_MODE=false;buildPreview.visible=false;$('buildHelp').style.display='none';buildChoice=null;}
 function rotateBuild(){buildRot=(buildRot+Math.PI/2)%(Math.PI*2);buildPreview.rotation.y=buildRot;}
 function toggleBuild(){if(BUILD_MODE){stopBuild();return}M(`<h2>🔨 Будівництво</h2><p>Вибери споруду, наведи курсор на землю та натисни для розміщення. На телефоні торкнися місця. R — поворот, Esc — скасування.</p><p>🪵 ${S.explore.wood} · 🪨 ${S.explore.stone} · 🍄 ${S.explore.mush} · 🪙 ${S.coin}</p>${BUILDABLE.map(b=>`<div class="questRow"><b>${b.emoji} ${b.name}</b><p>${b.desc}</p><small>${b.coin} 🪙 · ${b.wood||0} 🪵 · ${b.stone||0} 🪨 · ${b.mush||0} 🍄</small><p><button data-beyond="choose:${b.id}">Обрати</button></p></div>`).join('')}<button data-a="close">Закрити</button>`)}
@@ -699,7 +717,7 @@ function updateBuildPoint(x,y){buildSpot={x,y};buildValid=canPlace(x,y);buildPre
 function placeBuild(){if(!BUILD_MODE||!buildChoice||!buildValid){tz('Обери вільне місце на фермі');return}const b=buildChoice,e=S.explore;if(S.coin<b.coin||e.wood<(b.wood||0)||e.stone<(b.stone||0)||e.mush<(b.mush||0)){tz('Не вистачає матеріалів або монет');return}S.coin-=b.coin;e.wood-=b.wood||0;e.stone-=b.stone||0;e.mush-=b.mush||0;const o={id:b.id,x:Math.round(buildSpot.x),y:Math.round(buildSpot.y),rot:buildRot};e.placed.push(o);PLACED_MESH.push(makePlaced(b,o.x,o.y,o.rot));tz('🏡 Побудовано: '+b.name);fly(o.x,o.y,'🔨');save();stopBuild()}
 $('buildBtn').onclick=toggleBuild;
 renderer.domElement.addEventListener('pointermove',e=>{if(BUILD_MODE&&e.pointerType==='mouse'){const p=pointFromScreen(e.clientX,e.clientY);if(p)updateBuildPoint(p.x,p.y)}});
-renderer.domElement.addEventListener('pointerdown',e=>{if(!BUILD_MODE)return;e.stopPropagation();e.preventDefault();const p=pointFromScreen(e.clientX,e.clientY);if(p)updateBuildPoint(p.x,p.y);placeBuild()},true);
+renderer.domElement.addEventListener('pointerdown',e=>{if(!BUILD_MODE)return;e.stopPropagation();e.preventDefault();const p=pointFromScreen(e.clientX,e.clientY);if(p)updateBuildPoint(p.x,p.y);if(e.pointerType==='mouse')placeBuild()},true);
 $('m').addEventListener('click',e=>{const b=e.target.closest('[data-beyond]');if(!b)return;const a=b.dataset.beyond;if(a.startsWith('choose:'))chooseBuild(a.slice(7));else if(a==='bridge'){const t=S.explore;if(t.wood>=5&&t.stone>=4&&S.coin>=30&&!t.bridge){t.wood-=5;t.stone-=4;S.coin-=30;t.bridge=true;tz('🌉 Міст відновлено! Грибний ліс відкрито');save()}bridgeMenu()}else if(a==='wild'){const t=S.explore;if(t.mush>=2&&!t.wild){t.mush-=2;t.wild=true;S.cr[7].u=true;S.cr[7].x=1280;S.cr[7].y=800;S.cr[7].tx=1280;S.cr[7].ty=800;tz('💜 Туманчик приєднався до поселення!');save()}wildMenu()}else if(a==='claim'){const t=S.explore,q=BEYOND_QUEST[t.quest];if(q&&beyondProgress(q)){t.quest++;S.coin+=20;tz('🌫️ Крок виконано: +20 🪙');save()}beyondQuestMenu()}else if(a.startsWith('job08:')){const [idx,job]=a.slice(6).split(':');S.cr[+idx].job=job;save();shrineR()}});
 const _creatureR08=creatureR;creatureR=function(i){_creatureR08(i);const c=S.cr[i];if(c?.u){const html=`<p><b>Спеціалізація</b></p><button data-beyond="job08:${i}:wood">🪵 Лісоруб</button><button data-beyond="job08:${i}:stone">🪨 Каменяр</button><button data-beyond="job08:${i}:mush">🍄 Збирач грибів</button><button data-beyond="job08:${i}:farm">🌾 Фермер</button><button data-beyond="job08:${i}:rest">💤 Відпочинок</button><p><small>Поточна роль: ${c.job}</small></p>`;$('m').insertAdjacentHTML('beforeend',html)}};
 const _shrineR08=shrineR;shrineR=function(){_shrineR08();$('m').insertAdjacentHTML('beforeend','<p><small>Для нових ролей підійди до конкретної істоти й відкрий її панель.</small></p>')};
@@ -753,7 +771,7 @@ function rushMakeWorld(){
 }
 rushMakeWorld();
 // Initialize the persistent farm state before starting the render loop.
-load();window.oddfarmInitBaseRotations?.();window.oddfarmRefreshShopBuilding?.();unlock();ensureQuest();restorePlaced();setInterval(save,5000);
+load();window.oddfarmInitBaseRotations?.();window.oddfarmRefreshShopBuilding?.();unlock();ensureQuest();restorePlaced();setInterval(save,5000);addEventListener('pagehide',save);document.addEventListener('visibilitychange',()=>{if(document.hidden){save();JS=null;for(const k in K)K[k]=0;$('st').style.display='none'}});
 let last=0;
 function rushOverlay(html){const o=$('rushOverlay');o.innerHTML='<div class="rushShell">'+html+'</div>';o.style.display='block';modal=1;JS=null;$('st').style.display='none'}
 function rushClose(){if(rush&&rush.phase==='playing')return;rush=null;rushView='closed';rushWorld.visible=false;$('rushOverlay').style.display='none';modal=0;save()}
@@ -866,7 +884,9 @@ gwCard=function(idx,bot=false){if(!rush||rush.phase!=='playing')return;actionOld
 const actionOldFinish=rushFinish;
 rushFinish=function(forfeit=false){actionOldFinish(forfeit);const shell=$('rushOverlay').querySelector('.rushShell');if(shell){const p=shell.querySelector('p');if(p)p.insertAdjacentHTML('beforeend',`<p>🥬 Зібрано врожаю: ${rush.harvested} · Бот: ${rush.botHarvested}</p>`)}};
 
-function loop(n){requestAnimationFrame(loop);try{const dt=Math.min(.05,(n-last)/1000||0);last=n;T=n/1000;upd(dt);sync(dt);syncBeyond(dt);hudU();questHUD();rush3DFrame();renderer.render(scene,cam3)}catch(e){dbg(e.message)}}
+const engine=new ODDFARMEngine();
+ document.addEventListener('visibilitychange',()=>{engine.reset();if(document.hidden){for(const k in K)K[k]=false;JS=null;P.mv=0;save()}});
+function loop(n){requestAnimationFrame(loop);try{T=n/1000;engine.frame(n,upd,dt=>{sync(dt);syncBeyond(dt);rush3DFrame();renderer.render(scene,cam3)},()=>{hudU();questHUD()})}catch(e){dbg(e.message)}}
 requestAnimationFrame(loop);
 
 </script><script>
@@ -891,44 +911,66 @@ requestAnimationFrame(loop);
 </script>
 
 <style>
+/* ODDFARM 1.8.7: quiet, thumb-friendly mobile HUD */
+#ofMobile{display:none;position:fixed;right:10px;bottom:calc(182px + env(safe-area-inset-bottom,0px));z-index:30;flex-direction:column;align-items:flex-end;gap:7px;pointer-events:none}
+#ofMobile button{pointer-events:auto;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+#ofMobile .of-launch{width:42px;height:42px;min-width:42px;min-height:42px;border-radius:13px;border:1px solid #ffffff45;background:#1a2827b8;color:#f3f3e8;font-size:19px;box-shadow:0 2px 8px #0003;backdrop-filter:blur(8px)}
+#ofMobile .of-launch[aria-expanded=true]{background:#273b35dc}
+#ofMobile .of-tools{display:none;grid-template-columns:repeat(2,42px);gap:7px;padding:8px;border-radius:15px;background:#13231f9c;border:1px solid #ffffff22;backdrop-filter:blur(10px);pointer-events:auto}
+#ofMobile.open .of-tools{display:grid}
+#ofMobile .of-tools button{width:42px;height:42px;min-width:42px;min-height:42px;border-radius:11px;border:1px solid #ffffff30;background:#d9e3d51e;color:#f3f3e8;font-size:19px;padding:0;box-shadow:none}
+#ofMobile .of-tools button:active,#ofMobile .of-launch:active{background:#91b99a66}
+#ofMobile .of-buildtools{display:none;gap:6px;pointer-events:auto}
+body.of-building #ofMobile .of-buildtools{display:flex}
+#ofMobile .of-buildtools button{min-width:42px;height:42px;border-radius:11px;border:1px solid #ffffff36;background:#1c322acb;color:#f4f6ed;font-size:18px;padding:0 10px;backdrop-filter:blur(8px)}
 @media(pointer:coarse),(max-width:800px){
  #ofMobile{display:flex!important}
- #a{display:block!important;right:15px!important;bottom:calc(104px + env(safe-area-inset-bottom,0px))!important;width:72px!important;height:72px!important;font-size:23px!important;z-index:22!important}
- #hot{bottom:calc(10px + env(safe-area-inset-bottom,0px))!important;left:8px!important}
- #hot .slot{width:53px;height:53px;font-size:21px}
- #pr{bottom:calc(184px + env(safe-area-inset-bottom,0px))!important;font-size:15px;max-width:65vw;white-space:normal}
- #oddfarmRotationToggle{right:8px!important;bottom:calc(265px + env(safe-area-inset-bottom,0px))!important;padding:8px!important;font-size:12px!important}
+ #a{display:block!important;right:12px!important;bottom:calc(72px + env(safe-area-inset-bottom,0px))!important;width:57px!important;height:57px!important;font-size:20px!important;z-index:22!important;background:#243e31bf!important;border:1px solid #ffffff55!important;box-shadow:0 3px 12px #0003!important;backdrop-filter:blur(7px)}
+ #hot{bottom:calc(8px + env(safe-area-inset-bottom,0px))!important;left:8px!important;gap:4px!important}
+ #hot .slot{width:43px!important;height:44px!important;font-size:18px!important;padding:0!important;border-radius:10px!important;background:#243b32b8!important;border:1px solid #ffffff38!important;box-shadow:none!important}
+ #pr{bottom:calc(146px + env(safe-area-inset-bottom,0px))!important;font-size:12px!important;max-width:60vw;white-space:normal;opacity:.85}
+ #oddfarmRotationToggle{right:8px!important;bottom:calc(250px + env(safe-area-inset-bottom,0px))!important;padding:6px!important;font-size:11px!important;opacity:.78}
  #oddfarmRotationPanel{max-width:94vw!important;max-height:60vh!important;overflow:auto!important}
- #m{width:min(92vw,480px)!important;max-height:75dvh!important;box-sizing:border-box!important;font-size:15px!important}
- #m button{min-height:42px}
- #questBtn{font-size:12px!important;padding:6px!important}
- #buildBtn{top:57px!important;font-size:12px!important;padding:6px!important}
- #questTrack{display:none!important}
- #tip{display:none!important}
+ #m{width:min(92vw,480px)!important;max-height:75dvh!important;box-sizing:border-box!important;font-size:14px!important}
+ #m button{min-height:40px}
+ #questBtn,#buildBtn{display:none!important}
+ #questTrack,#tip{display:none!important}
+ #oddfarmUiToggle{width:110px!important;height:51px!important;opacity:.87;border-radius:11px!important}
+ #oddfarmUiMenu{max-width:90vw!important}
 }
-#ofMobile{display:none;position:fixed;right:10px;bottom:calc(195px + env(safe-area-inset-bottom,0px));z-index:30;gap:6px;flex-direction:column;align-items:flex-end;pointer-events:none}
-#ofMobile button{pointer-events:auto;min-height:44px;min-width:48px;border-radius:12px;font-size:15px;font-weight:800;padding:8px;background:linear-gradient(#ffe8a8,#dca35d);color:#57381c;border:2px solid #805022!important;touch-action:manipulation}
-#ofMobile .ofrow{display:flex;gap:6px}
-#ofMobile .ofbuild{display:none}
-body.of-building #ofMobile .ofbuild{display:flex}
+@media(max-width:390px){
+ #ofMobile{right:6px;bottom:calc(160px + env(safe-area-inset-bottom,0px))}
+ #hot .slot{width:39px!important;height:41px!important}
+}
 </style>
 <div id="ofMobile" aria-label="Мобільне керування ODDFARM">
- <div class="ofrow"><button type="button" id="ofBag">🎒 Сумка</button><button type="button" id="ofShop">🏪 Крамниця</button></div>
- <div class="ofrow"><button type="button" id="ofBuild">🔨 Будувати</button><button type="button" id="ofQuest">📜 Квести</button></div>
- <div class="ofrow ofbuild"><button type="button" id="ofTurn">↻ Повернути</button><button type="button" id="ofPlace">✓ Поставити</button><button type="button" id="ofCancel">✕ Скасувати</button></div>
+ <div class="of-buildtools"><button type="button" id="ofTurn" title="Повернути" aria-label="Повернути">↻</button><button type="button" id="ofPlace" title="Поставити" aria-label="Поставити">✓</button><button type="button" id="ofCancel" title="Скасувати" aria-label="Скасувати">✕</button></div>
+ <div class="of-tools" id="ofTools">
+  <button type="button" id="ofBag" title="Сумка" aria-label="Сумка">🎒</button>
+  <button type="button" id="ofShop" title="Крамниця" aria-label="Крамниця">🏪</button>
+  <button type="button" id="ofBuild" title="Будівництво" aria-label="Будівництво">🔨</button>
+  <button type="button" id="ofQuest" title="Квести" aria-label="Квести">📜</button>
+ </div>
+ <button type="button" class="of-launch" id="ofLaunch" aria-expanded="false" aria-controls="ofTools" title="Меню" aria-label="Меню">☰</button>
 </div>
 <script>
 (function(){
-const q=id=>document.getElementById(id);
-q('ofBag').onclick=()=>{if(typeof bagM==='function')bagM()};
-q('ofShop').onclick=()=>{if(typeof shopM==='function')shopM()};
-q('ofBuild').onclick=()=>{if(typeof toggleBuild==='function')toggleBuild()};
-q('ofQuest').onclick=()=>q('questBtn')?.click();
-q('ofTurn').onclick=()=>{if(typeof rotateBuild==='function')rotateBuild()};
-q('ofPlace').onclick=()=>{if(typeof placeBuild==='function')placeBuild()};
-q('ofCancel').onclick=()=>{if(typeof stopBuild==='function')stopBuild()};
-const sync=()=>{document.body.classList.toggle('of-building',typeof BUILD_MODE!=='undefined'&&!!BUILD_MODE);requestAnimationFrame(sync)};
-requestAnimationFrame(sync);
+ const q=id=>document.getElementById(id);
+ const root=q('ofMobile'),launch=q('ofLaunch');
+ const close=()=>{root.classList.remove('open');launch.setAttribute('aria-expanded','false')};
+ launch.addEventListener('click',()=>{const open=root.classList.toggle('open');launch.setAttribute('aria-expanded',String(open))});
+ const action=(id,fn)=>q(id).addEventListener('click',()=>{close();try{fn()}catch(e){console.warn('ODDFARM mobile control:',e)}});
+ action('ofBag',()=>{if(typeof bagM==='function')bagM()});
+ action('ofShop',()=>{if(typeof shopM==='function')shopM()});
+ action('ofBuild',()=>{if(typeof toggleBuild==='function')toggleBuild()});
+ action('ofQuest',()=>q('questBtn')?.click());
+ action('ofTurn',()=>{if(typeof rotateBuild==='function')rotateBuild()});
+ action('ofPlace',()=>{if(typeof placeBuild==='function')placeBuild()});
+ action('ofCancel',()=>{if(typeof stopBuild==='function')stopBuild()});
+ document.addEventListener('pointerdown',e=>{if(!root.contains(e.target))close()});
+ let previous=false;
+ function sync(){const building=typeof BUILD_MODE!=='undefined'&&!!BUILD_MODE;if(building!==previous){document.body.classList.toggle('of-building',building);previous=building}requestAnimationFrame(sync)}
+ requestAnimationFrame(sync);
 })();
 </script>
-</body></html>
+<style>@media(pointer:coarse),(max-width:800px){#m{z-index:80!important;overscroll-behavior:contain;touch-action:pan-y}#m button{min-height:44px}#ofMobile .of-launch,#ofMobile .of-tools button{width:44px;height:44px}#st{border:2px solid #ffffff55;background:#20382c44}#st i{opacity:.65}body:has(.rush3dHud) #ofMobile,body:has(.rush3dHud) #a,body:has(.rush3dHud) #hot,body:has(.rush3dHud) #oddfarmUiToggle,body:has(.rush3dHud) #oddfarmRotationToggle{display:none!important}body:has(#m[style*="block"]) #ofMobile{visibility:hidden}#buildHelp{max-width:48vw;font-size:12px;pointer-events:auto}#buildHelp button{min-height:44px}#rushOverlay .rush3dBottom{bottom:calc(8px + env(safe-area-inset-bottom,0px))}#rushOverlay button{min-height:40px}}</style><script>if('serviceWorker' in navigator && location.protocol==='https:'){navigator.serviceWorker.register('./sw.js').catch(console.warn)}</script></body></html>
