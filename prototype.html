@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 2.0.9 · Authored beds</title>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 2.0.10 · Beds and balance</title>
 <style>
 :root{--bg:#d9b3a8;--pn:#fbf0d2;--tx:#1d1a24;--ac:#c8472b;color-scheme:light dark;box-sizing:border-box}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--pn:#3a3224;--tx:#f6e9c6}}
@@ -155,15 +155,15 @@ const SOL=[[340,480,120,50],[1170,250,220,170],[775,395,50,30]];
 /* ===== STATE + SAVE ===== */
 let S,P={ang:0,x:800,y:720,f:1,w:0,dir:0,act:0,mv:0},cam={x:800,y:620},K={},JS=null,modal=0,T=0;
 function fresh(){return{coin:40,inv:{sc:3,sp:0,sm:0,c:0,p:0,m:0,honey:0,spore:0,jam:0},pl:PL.map(()=>({c:null,t:0})),cr:CRE.map((c,i)=>({u:i==0,prodAt:0,x:c.x,y:c.y,tx:c.x,ty:c.y,w:0,f:1,wt:0,job:'rest',wk:0,hunger:85,energy:90,mood:80,bond:10,life:'wander',social:0,careAt:0})),hv:0,dev:0,up:{},build:{},serAt:0,ser:0,sel:'c',fl:[],toast:'',tt:0}}
-function safeCount(v){const n=Number(v);return Number.isFinite(n)&&n>=0?Math.min(Number.MAX_SAFE_INTEGER,Math.floor(n)):0}
+function safeCount(v){if(v===null||v===undefined||v==='null'||v==='NaN')return 0;const n=Number(v);return Number.isFinite(n)&&n>=0?Math.min(Number.MAX_SAFE_INTEGER,Math.floor(n)):0}
 function repairEconomy(state){
- const validCoin=state.coin!==null&&state.coin!==undefined&&Number.isFinite(Number(state.coin))&&Number(state.coin)>=0;
+ const validCoin=(typeof state.coin==='number'||typeof state.coin==='string'&&state.coin.trim()!=='')&&Number.isFinite(Number(state.coin))&&Number(state.coin)>=0;
  state.coin=validCoin?safeCount(state.coin):(state.lastGoodCoin!==null&&state.lastGoodCoin!==undefined&&Number.isFinite(Number(state.lastGoodCoin))?safeCount(state.lastGoodCoin):40);
  state.lastGoodCoin=state.coin;
  state.inv=state.inv||{};
  for(const k of [...Object.keys(CR),...Object.keys(PD),...Object.keys(CR).map(k=>'s'+k)])state.inv[k]=safeCount(state.inv[k]);
 }
-function sellGoods(state,keys){repairEconomy(state);let total=0;for(const k of new Set(keys)){if(!Object.hasOwn(CR,k)&&!Object.hasOwn(PD,k))continue;const item=CR[k]||PD[k],qty=safeCount(state.inv[k]),price=safeCount(item.sell);const value=qty*price;if(!Number.isSafeInteger(value)||!Number.isSafeInteger(state.coin+total+value))continue;total+=value;state.inv[k]=0}state.coin+=total;state.lastGoodCoin=state.coin;return total}
+function sellGoods(state,keys){repairEconomy(state);let total=0;for(const k of new Set(keys)){if(!Object.prototype.hasOwnProperty.call(CR,k)&&!Object.prototype.hasOwnProperty.call(PD,k))continue;const item=CR[k]||PD[k],qty=safeCount(state.inv[k]),price=safeCount(item.sell);const value=qty*price;if(!Number.isSafeInteger(value)||!Number.isSafeInteger(state.coin+total+value))continue;total+=value;state.inv[k]=0}state.coin+=total;state.lastGoodCoin=state.coin;return total}
 function save(){repairEconomy(S);try{localStorage.setItem(KEY,JSON.stringify({...S,fl:[],toast:''}))}catch(e){}}
 function load(){try{const o=JSON.parse(localStorage.getItem(KEY));if(o&&o.inv){S={...fresh(),...o,inv:{...fresh().inv,...o.inv},fl:[],tt:0};while(S.pl.length<PL.length)S.pl.push({c:null,t:0});S.up=S.up||{};S.build=S.build||{};S.ser=0;S.cr=CRE.map((def,i)=>({...fresh().cr[i],...(S.cr[i]||{}),life:(S.cr[i]||{}).life||'wander'}));return}}catch(e){}S=fresh()}
 const tz=s=>{S.toast=s;S.tt=2.4},fly=(x,y,s)=>S.fl.push({x,y,t:0,s});
@@ -214,7 +214,7 @@ function shopR(){repairEconomy(S);const sell=[...Object.keys(CR).map(k=>[k,CR[k]
  $('m').innerHTML=`<h2>Крамниця</h2>${shopRotationControls()}<p>Монети: <b>${S.coin} 🪙</b></p><b>Насіння</b><table>${Object.keys(CR).map(k=>`<tr><td>${CR[k].e} ${CR[k].n}<br><small>росте ${CR[k].gt} с · продаж ${CR[k].sell} 🪙</small></td><td>є: ${S.inv['s'+k]}</td><td><button data-a="buy:${k}" ${S.coin<CR[k].seed?'disabled':''}>${CR[k].seed} 🪙</button></td></tr>`).join('')}</table><b>Продаж</b><table>${sell.length?sell.map(([k,o])=>{tot+=S.inv[k]*o.sell;return`<tr><td>${o.e} ${o.n} ×${S.inv[k]}</td><td><button data-a="sell:${k}">${S.inv[k]*o.sell} 🪙</button></td></tr>`}).join(''):'<tr><td>Нічого продавати</td></tr>'}</table><button data-a="all" ${tot?'':'disabled'}>Продати все (${tot} 🪙)</button> <button data-a="close">Закрити</button>`}
 $('m').addEventListener('click',e=>{const a=e.target.closest('[data-a]');if(!a)return;const[k,x]=a.dataset.a.split(':');
  if(k=='openshop'){shopM()}else if(k=='shoprotate'){rotateShop(x);if($('m').innerHTML.includes('Крамниця')&&!$('m').innerHTML.includes('Оглянути'))shopR();else buildingM(0)}else if(k=='close')closeM();
- else if(k=='buy'){repairEconomy(S);if(Object.hasOwn(CR,x)&&S.coin>=CR[x].seed){S.coin-=CR[x].seed;S.inv['s'+x]++;save()}shopR()}
+ else if(k=='buy'){repairEconomy(S);if(Object.prototype.hasOwnProperty.call(CR,x)&&S.coin>=CR[x].seed){S.coin-=CR[x].seed;S.inv['s'+x]++;save()}shopR()}
  else if(k=='sell'){sellGoods(S,[x]);save();shopR()}
  else if(k=='all'){sellGoods(S,[...Object.keys(CR),...Object.keys(PD)]);save();shopR()}
  else if(k=='ser'){sermon();shrineR()}
@@ -446,7 +446,7 @@ function sync(dt){BLM.forEach((o,i)=>{o.house.visible=!!S.build[BUILD_SCENE[i].i
 const HU={};function setT(id,v){if(HU[id]!==v){HU[id]=v;$(id).textContent=v}}
 $('hot').innerHTML=['c','p','m'].map((k,i)=>`<button class="slot" data-sel="${k}"><span>${CR[k].e}</span><b id="sl${k}"></b><i>${i+1}</i></button>`).join('');
 $('hot').addEventListener('click',e=>{const b=e.target.closest('[data-sel]');if(b)S.sel=b.dataset.sel});
-function hudU(){setT('coin',S.coin+' 🪙');setT('dev','✦ '+S.dev.toFixed(1));for(const k of['c','p','m']){setT('sl'+k,S.inv['s'+k]);$('hot').querySelector(`[data-sel=${k}]`).classList.toggle('on',S.sel==k)}
+function hudU(){repairEconomy(S);setT('coin',String(S.coin)+' 🪙');setT('dev','✦ '+S.dev.toFixed(1));for(const k of['c','p','m']){setT('sl'+k,S.inv['s'+k]);$('hot').querySelector(`[data-sel=${k}]`).classList.toggle('on',S.sel==k)}
  let q='';for(const k of[...Object.keys(CR),...Object.keys(PD)])if(S.inv[k]>0)q+=(CR[k]||PD[k]).e+' '+S.inv[k]+'  ';setT('inv',q);
  const n=near();setT('pr',n&&!modal?(TOUCH?'':'E — ')+n.t:'');$('pr').style.display=n&&!modal?'block':'none';setT('ts',S.tt>0?S.toast:'');$('ts').style.opacity=S.tt>0?1:0;$('tip').style.display=T<25?'block':'none'}
 /* ===== INPUT, LAYOUT, LOOP ===== */
@@ -918,5 +918,5 @@ requestAnimationFrame(loop);
  document.addEventListener('pointerdown',e=>{if(!menu.contains(e.target)&&!toggle.contains(e.target))setOpen(false)});
 })();
 </script>
-<div id="oddfarmBuildVersion" style="position:fixed;bottom:4px;right:8px;z-index:10000;color:white;background:#233b2c;border-radius:6px;padding:3px 6px;font:11px system-ui;pointer-events:none">ALPHA 2.0.9</div>
+<div id="oddfarmBuildVersion" style="position:fixed;bottom:4px;right:8px;z-index:10000;color:white;background:#233b2c;border-radius:6px;padding:3px 6px;font:11px system-ui;pointer-events:none">ALPHA 2.0.10</div>
 </body></html>
