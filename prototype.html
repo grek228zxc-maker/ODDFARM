@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 2.0.4 · Beds recovery</title>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 2.0.5 · Bed pivot fix</title>
 <style>
 :root{--bg:#d9b3a8;--pn:#fbf0d2;--tx:#1d1a24;--ac:#c8472b;color-scheme:light dark;box-sizing:border-box}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--pn:#3a3224;--tx:#f6e9c6}}
@@ -789,6 +789,20 @@ rushFinish=function(forfeit=false){actionOldFinish(forfeit);const shell=$('rushO
    if(!Number.isFinite(fit)||fit<=0)throw Error('Bad bed dimensions for stage '+i);
    g.scale.setScalar(fit);
    g.position.set(-ctr.x*fit,-b.min.y*fit,-ctr.z*fit);
+   // Center the imported geometry inside a separate pivot. Rotating the
+   // translated geometry itself would move its center far away from the plot.
+   const pivot=new THREE.Group();
+   pivot.add(g);
+   pivot.rotation.y=Math.PI;
+   pivot.updateMatrixWorld(true);
+   const fitted=new THREE.Box3().setFromObject(pivot);
+   const center=fitted.getCenter(new THREE.Vector3());
+   const dims=fitted.getSize(new THREE.Vector3());
+   if(![center.x,center.y,center.z,dims.x,dims.y,dims.z].every(Number.isFinite) ||
+      Math.abs(center.x)>.01 || Math.abs(center.z)>.01 ||
+      Math.abs(fitted.min.y)>.01 || dims.x>3.71 || dims.z>3.71 || dims.y>3.01 ||
+      dims.x<.05 || dims.z<.05)throw Error('Bed pivot validation failed for stage '+i);
+   groups[i]=pivot;
   });
   return groups;
  }
@@ -807,7 +821,7 @@ rushFinish=function(forfeit=false){actionOldFinish(forfeit);const shell=$('rushO
    m.authoredBeds[0].visible=true;
    m.originalPlotParts.forEach(c=>c.visible=false);
   });
-  report('Грядки 5/5 ✓');
+  report('Грядки 5/5 · центр перевірено ✓');
  })
  .catch(e=>report('Грядки: '+String(e.message||e),true));
 })();
@@ -899,5 +913,5 @@ requestAnimationFrame(loop);
  document.addEventListener('pointerdown',e=>{if(!menu.contains(e.target)&&!toggle.contains(e.target))setOpen(false)});
 })();
 </script>
-<div id="oddfarmBuildVersion" style="position:fixed;bottom:4px;right:8px;z-index:10000;color:white;background:#233b2c;border-radius:6px;padding:3px 6px;font:11px system-ui;pointer-events:none">ALPHA 2.0.4</div>
+<div id="oddfarmBuildVersion" style="position:fixed;bottom:4px;right:8px;z-index:10000;color:white;background:#233b2c;border-radius:6px;padding:3px 6px;font:11px system-ui;pointer-events:none">ALPHA 2.0.5</div>
 </body></html>
