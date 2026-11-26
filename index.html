@@ -801,7 +801,7 @@ rushFinish=function(forfeit=false){actionOldFinish(forfeit);const shell=$('rushO
    m.originalPlotParts.forEach(c=>c.visible=false);
    m.authoredBeds=groups.map(g=>{
     const stage=g.clone(true);stage.visible=false;
-    stage.rotation.y=Math.PI; // original Claude plot orientation
+    stage.rotation.y=0; // original Blender-facing orientation
     m.g.add(stage);return stage;
    });
   });
