@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 2.0.3 · Prototype</title>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 2.0.4 · Beds recovery</title>
 <style>
 :root{--bg:#d9b3a8;--pn:#fbf0d2;--tx:#1d1a24;--ac:#c8472b;color-scheme:light dark;box-sizing:border-box}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--pn:#3a3224;--tx:#f6e9c6}}
@@ -415,6 +415,7 @@ function sync(dt){BLM.forEach((o,i)=>{o.house.visible=!!S.build[BUILD_SCENE[i].i
  H.body.position.y=1.75+bobh;H.head.position.y=2.85+bobh;H.root.scale.set(.72,.72*(1+Math.sin(w*2)*.03*mv),.72);
  H.wingL.rotation.z=.5+Math.sin(T*40)*.25;H.wingR.rotation.z=-.5-Math.sin(T*40)*.25;H.tail.rotation.y=Math.sin(T*3)*.3;H.antL.rotation.z=.3+Math.sin(T*3)*.15;H.antR.rotation.z=-.3-Math.sin(T*3.3)*.15;
  const np=NP();PLM.forEach((m,i)=>{m.g.visible=i<np;if(i>=np)return;const p=S.pl[i];
+  m.g.position.set(X(PL[i][0]),.12,Z(PL[i][1]));
   const visualStage=!p.c?0:(p.c==='c'&&prog(p)>=1?3:(prog(p)>=.5?2:1));
   if(m.bedState!==visualStage){m.bedState=visualStage;if(m.bedModels)m.bedModels.forEach((bed,k)=>bed.visible=!m.assetBed && k===visualStage);}
   if(m.key!=p.c){m.crops.forEach(c=>m.g.remove(c));m.crops=[];m.key=p.c;if(p.c)for(let k=-1;k<2;k++){const c=cropMesh(p.c);c.position.set(k*1.0,BED_TOP,.05);m.g.add(c);m.crops.push(c)}}
@@ -798,12 +799,13 @@ rushFinish=function(forfeit=false){actionOldFinish(forfeit);const shell=$('rushO
   PLM.forEach(m=>{
    // Hide all of Claude's plot base meshes; keep crop objects for non-carrot plants.
    m.originalPlotParts=m.g.children.filter(c=>!m.crops.includes(c));
-   m.originalPlotParts.forEach(c=>c.visible=false);
    m.authoredBeds=groups.map(g=>{
     const stage=g.clone(true);stage.visible=false;
     stage.rotation.y=Math.PI; // corrected 180 degree orientation
     m.g.add(stage);return stage;
    });
+   m.authoredBeds[0].visible=true;
+   m.originalPlotParts.forEach(c=>c.visible=false);
   });
   report('Грядки 5/5 ✓');
  })
@@ -851,8 +853,30 @@ const introState=ensure();if(introState.intro<2)S.cr.forEach(c=>c.u=false);
 if(introState.intro===0){M('<h2>ODDFARM — Початок</h2><p>Ти опинився на незнайомій фермі. У тебе є лише одна морквина.</p><p>Підійди до грядки (WASD або джойстик) і натисни E, щоб посадити її.</p><button data-a="close">Почати</button>')}
 })();
 
+/* Bed visibility independent of legacy scene synchronisation. */
+function recoverBeds(){
+ const count=NP();
+ PLM.forEach((m,i)=>{
+  m.g.visible=i<count;
+  m.g.position.set(X(PL[i][0]),.12,Z(PL[i][1]));
+  if(i>=count)return;
+  const p=S.pl[i];
+  const q=p.c==='c'?prog(p):0;
+  const idx=p.c!=='c'?0:q>=1?4:q>=.7?3:q>=.3?2:1;
+  if(m.authoredBeds?.length===5){
+   m.authoredBeds.forEach((g,k)=>{g.visible=k===idx;g.rotation.y=Math.PI});
+   if(m.assetBed)m.assetBed.visible=false;
+   m.g.children.filter(c=>c.userData.originalBedBase).forEach(c=>c.visible=false);
+  }else if(m.assetBed){
+   m.assetBed.visible=true;m.assetBed.rotation.y=Math.PI;
+  }else{
+   m.g.children.filter(c=>c.userData.originalBedBase).forEach(c=>c.visible=true);
+  }
+ });
+}
+recoverBeds();
 cam3.position.set(X(P.x)*.9,21,Z(P.y)+19);cam3.lookAt(X(P.x)*.9,1.2,Z(P.y)-1);
-function loop(n){requestAnimationFrame(loop);const dt=Math.min(.05,(n-last)/1000||0);last=n;T=n/1000;for(const [name,fn] of [['update',()=>upd(dt)],['scene',()=>sync(dt)],['forest',()=>syncBeyond(dt)],['HUD',hudU],['quests',questHUD],['arena',rush3DFrame],['render',()=>renderer.render(scene,cam3)]]){try{fn()}catch(e){dbg(name+': '+e.message);console.error(name,e)}}}
+function loop(n){requestAnimationFrame(loop);const dt=Math.min(.05,(n-last)/1000||0);last=n;T=n/1000;for(const [name,fn] of [['update',()=>upd(dt)],['scene',()=>sync(dt)],['beds',recoverBeds],['forest',()=>syncBeyond(dt)],['HUD',hudU],['quests',questHUD],['arena',rush3DFrame],['render',()=>renderer.render(scene,cam3)]]){try{fn()}catch(e){dbg(name+': '+e.message);console.error(name,e)}}}
 requestAnimationFrame(loop);
 
 </script><script>
@@ -875,5 +899,5 @@ requestAnimationFrame(loop);
  document.addEventListener('pointerdown',e=>{if(!menu.contains(e.target)&&!toggle.contains(e.target))setOpen(false)});
 })();
 </script>
-<div id="oddfarmBuildVersion" style="position:fixed;bottom:4px;right:8px;z-index:10000;color:white;background:#233b2c;border-radius:6px;padding:3px 6px;font:11px system-ui;pointer-events:none">ALPHA 2.0.3</div>
+<div id="oddfarmBuildVersion" style="position:fixed;bottom:4px;right:8px;z-index:10000;color:white;background:#233b2c;border-radius:6px;padding:3px 6px;font:11px system-ui;pointer-events:none">ALPHA 2.0.4</div>
 </body></html>
