@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 1.8.1 · custom carrot growth beds</title>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 1.8.1 · Blender beds fix</title>
 <style>
 :root{--bg:#d9b3a8;--pn:#fbf0d2;--tx:#1d1a24;--ac:#c8472b;color-scheme:light dark;box-sizing:border-box}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--pn:#3a3224;--tx:#f6e9c6}}
@@ -115,8 +115,6 @@ if(!window.THREE){
 }
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-<script>if(window.THREE && !THREE.GLTFLoader){document.write('<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"><\/script>')}</script>
 <script>
 if(!window.THREE){document.body.innerHTML='<main style="padding:35px;max-width:680px;margin:10vh auto;background:#fff4db;color:#402818;border-radius:18px;font:18px/1.5 Arial,sans-serif"><h1>ODDFARM — не вдалося запустити 3D</h1><p>Браузер не зміг завантажити Three.js із жодного з трьох серверів. Перевір інтернет, вимкни блокувальник скриптів або спробуй інший браузер.</p><p>Це не помилка твоїх моделей GLB.</p></main>';throw new Error('Three.js unavailable from all three CDNs')}
 window.addEventListener('unhandledrejection',function(e){if(typeof dbg==='function')dbg('Promise: '+String(e.reason));});
@@ -716,41 +714,102 @@ gwCard=function(idx,bot=false){if(!rush||rush.phase!=='playing')return;actionOld
 const actionOldFinish=rushFinish;
 rushFinish=function(forfeit=false){actionOldFinish(forfeit);const shell=$('rushOverlay').querySelector('.rushShell');if(shell){const p=shell.querySelector('p');if(p)p.insertAdjacentHTML('beforeend',`<p>🥬 Зібрано врожаю: ${rush.harvested} · Бот: ${rush.botHarvested}</p>`)}};
 
-/* ODDFARM Alpha 1.8.1 — five authored carrot bed stages. Original terrain / engine untouched. */
+/* ODDFARM 1.8.1 — Blender beds fix: use built-in Web APIs, no extra CDN.
+   Read the five prefabs directly from the known local GLB. No terrain/camera changes. */
 (function loadAuthoredBeds(){
- const oldModels=PLM.map(m=>m.assetBed);
- if(!THREE.GLTFLoader){console.warn('[ODDFARM beds] GLTFLoader unavailable; keeping Claude beds');return}
- const loader=new THREE.GLTFLoader();
- loader.load('assets/base-crops-storage.glb',gltf=>{
-  try{
-   const groups=Array.from({length:5},()=>new THREE.Group());
-   gltf.scene.updateMatrixWorld(true);
-   gltf.scene.traverse(o=>{
-    if(!o.isMesh)return;
-    let n=o;while(n&&!/^ofpart_/.test(n.name))n=n.parent;
-    const hit=n&&/^ofpart_(\d+)_/.exec(n.name);
-    if(!hit)return;const idx=Number(hit[1]);if(idx<0||idx>=5)return;
-    const c=o.clone();o.matrixWorld.decompose(c.position,c.quaternion,c.scale);
-    c.castShadow=true;c.receiveShadow=true;
-    groups[idx].add(c);
+ const status=document.createElement('div');
+ status.id='oddfarm-bed-status';
+ status.style.cssText='position:fixed;right:9px;top:9px;z-index:19998;background:#263e2f;color:#fff0d4;border:1px solid #91bd7d;border-radius:10px;padding:6px 9px;font:600 12px/1.25 system-ui,sans-serif;pointer-events:none;box-shadow:0 2px 9px #0004';
+ status.textContent='Грядки: завантаження…';document.body.appendChild(status);
+ function report(message,failed){
+  status.textContent=message;status.style.background=failed?'#8f312d':'#263e2f';
+  (failed?console.error:console.info)('[ODDFARM beds]',message);
+ }
+ function readGlb(buffer){
+  const view=new DataView(buffer);
+  if(view.getUint32(0,true)!==0x46546c67||view.getUint32(4,true)!==2)throw Error('Invalid GLB header');
+  const jsonLength=view.getUint32(12,true);
+  if(view.getUint32(16,true)!==0x4e4f534a)throw Error('GLB JSON missing');
+  const json=JSON.parse(new TextDecoder().decode(new Uint8Array(buffer,20,jsonLength)));
+  const binHeader=20+jsonLength;
+  if(view.getUint32(binHeader+4,true)!==0x004e4942)throw Error('GLB BIN missing');
+  const binStart=binHeader+8;
+  const readAccessor=(i)=>{
+   const acc=json.accessors[i],bv=json.bufferViews[acc.bufferView];
+   if(!acc||!bv||acc.sparse)throw Error('Unsupported GLB accessor '+i);
+   const comps=acc.type==='VEC3'?3:acc.type==='VEC2'?2:acc.type==='VEC4'?4:1;
+   const compSize=acc.componentType===5126||acc.componentType===5125?4:acc.componentType===5123?2:1;
+   const stride=bv.byteStride||comps*compSize;
+   const base=binStart+(bv.byteOffset||0)+(acc.byteOffset||0);
+   const Ctor=acc.componentType===5126?Float32Array:acc.componentType===5125?Uint32Array:acc.componentType===5123?Uint16Array:null;
+   if(!Ctor)throw Error('Unsupported GLB data type '+acc.componentType);
+   const out=new Ctor(acc.count*comps);
+   for(let v=0;v<acc.count;v++)for(let c=0;c<comps;c++){
+    const p=base+v*stride+c*compSize;
+    out[v*comps+c]=acc.componentType===5126?view.getFloat32(p,true):
+      acc.componentType===5125?view.getUint32(p,true):view.getUint16(p,true);
+   }
+   return out;
+  };
+  const groups=Array.from({length:5},()=>new THREE.Group());
+  const materials=(json.materials||[]).map(def=>{
+   const c=def.pbrMetallicRoughness?.baseColorFactor||[1,1,1,1];
+   return new THREE.MeshLambertMaterial({color:new THREE.Color().setRGB(c[0],c[1],c[2]),side:THREE.DoubleSide});
+  });
+  json.nodes.forEach(node=>{
+   const match=/^ofpart_([0-4])_/.exec(node.name||'');
+   if(!match||node.mesh===undefined)return;
+   const stage=+match[1],mesh=json.meshes[node.mesh];
+   const object=new THREE.Group();
+   if(node.matrix)object.applyMatrix4(new THREE.Matrix4().fromArray(node.matrix));
+   else{
+    if(node.translation)object.position.fromArray(node.translation);
+    if(node.rotation)object.quaternion.fromArray(node.rotation);
+    if(node.scale)object.scale.fromArray(node.scale);
+   }
+   for(const prim of mesh.primitives){
+    if(prim.mode!==undefined&&prim.mode!==4)throw Error('Unsupported mesh mode');
+    const geom=new THREE.BufferGeometry();
+    geom.setAttribute('position',new THREE.BufferAttribute(readAccessor(prim.attributes.POSITION),3));
+    if(prim.attributes.NORMAL!==undefined)geom.setAttribute('normal',new THREE.BufferAttribute(readAccessor(prim.attributes.NORMAL),3));
+    else geom.computeVertexNormals();
+    if(prim.indices!==undefined)geom.setIndex(new THREE.BufferAttribute(readAccessor(prim.indices),1));
+    const m=new THREE.Mesh(geom,materials[prim.material]||new THREE.MeshLambertMaterial({color:0xffffff}));
+    m.castShadow=true;m.receiveShadow=true;
+    object.add(m);
+   }
+   groups[stage].add(object);
+  });
+  if(groups.some(g=>!g.children.length))throw Error('Not all five stages found');
+  groups.forEach((g,i)=>{
+   g.updateMatrixWorld(true);
+   const b=new THREE.Box3().setFromObject(g),size=b.getSize(new THREE.Vector3()),ctr=b.getCenter(new THREE.Vector3());
+   const fit=Math.min(3.7/size.x,3.7/size.z,3/size.y);
+   if(!Number.isFinite(fit)||fit<=0)throw Error('Bad bed dimensions for stage '+i);
+   g.scale.setScalar(fit);
+   g.position.set(-ctr.x*fit,-b.min.y*fit,-ctr.z*fit);
+  });
+  return groups;
+ }
+ fetch('assets/base-crops-storage.glb?v=181-bed-fix-2',{cache:'no-store'})
+ .then(r=>{if(!r.ok)throw Error('GLB HTTP '+r.status);return r.arrayBuffer()})
+ .then(buffer=>{
+  const groups=readGlb(buffer);
+  PLM.forEach(m=>{
+   // Hide all of Claude's plot base meshes; keep crop objects for non-carrot plants.
+   m.originalPlotParts=m.g.children.filter(c=>!m.crops.includes(c));
+   m.originalPlotParts.forEach(c=>c.visible=false);
+   m.authoredBeds=groups.map(g=>{
+    const stage=g.clone(true);stage.visible=false;
+    stage.rotation.y=Math.PI; // original Claude plot orientation
+    m.g.add(stage);return stage;
    });
-   if(groups.some(g=>!g.children.length))throw Error('Missing one or more bed stages');
-   const boxes=groups.map(g=>new THREE.Box3().setFromObject(g));
-   const baseSize=boxes[0].getSize(new THREE.Vector3());
-   const fit=Math.min(3.7/baseSize.x,3.7/baseSize.z,3/baseSize.y);
-   if(!Number.isFinite(fit)||fit<=0)throw Error('Invalid bed dimensions');
-   groups.forEach((g,i)=>{const b=boxes[i],center=b.getCenter(new THREE.Vector3());
-    g.scale.setScalar(fit);g.position.set(-center.x*fit,-b.min.y*fit,-center.z*fit);
-   });
-   PLM.forEach(m=>{m.authoredBeds=groups.map(g=>{const c=g.clone(true);c.visible=false;m.g.add(c);return c});
-    if(m.assetBed)m.assetBed.visible=false;
-   });
-   window.oddfarmBedsFiveReady=true;
-   console.info('[ODDFARM] Five Blender bed stages loaded');
-  }catch(err){console.warn('[ODDFARM beds] Failed to prepare stages',err);
-    PLM.forEach((m,i)=>{if(oldModels[i])oldModels[i].visible=true})}
- },undefined,err=>console.warn('[ODDFARM beds] GLB unavailable; original Claude beds retained',err));
+  });
+  report('Грядки 5/5 ✓');
+ })
+ .catch(e=>report('Грядки: '+String(e.message||e),true));
 })();
+
 function loop(n){requestAnimationFrame(loop);try{const dt=Math.min(.05,(n-last)/1000||0);last=n;T=n/1000;upd(dt);sync(dt);syncBeyond(dt);hudU();questHUD();rush3DFrame();renderer.render(scene,cam3)}catch(e){dbg(e.message)}}
 requestAnimationFrame(loop);
 
