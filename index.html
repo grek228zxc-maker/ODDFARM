@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 2.0.1 · Prologue fix</title>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 2.0.2 · Startup fix</title>
 <style>
 :root{--bg:#d9b3a8;--pn:#fbf0d2;--tx:#1d1a24;--ac:#c8472b;color-scheme:light dark;box-sizing:border-box}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--pn:#3a3224;--tx:#f6e9c6}}
@@ -818,7 +818,7 @@ const animals=[{n:'Кролик',x:1140,y:1010,color:0xe8d9bf},{n:'Курка',x
 const names=[['Carrotbit','Pumpbit','Melonbit'],['Carrock','Pumpchick','Melonchick'],['Carrotle','Pumpkurtle','Melontle']];
 const keys=['c','p','m'];
 function initial(){return {intro:0,first:-1,lab:false,tamed:[],hybrids:[],dex:[],boss:false,hp:100,playerHP:100,nextHit:0,eventAt:Date.now()+90000,eventUntil:0,eventDone:false,giants:0,autoAt:0}}
-function ensure(){if(!S.odd){S.odd=initial();S.inv.sc=1;S.sel='c';S.cr.forEach(c=>c.u=false);S.pl.forEach(p=>{p.c=null;p.t=0});S.hv=0;P.x=800;P.y=720save()}return S.odd}
+function ensure(){if(!S.odd){S.odd=initial();S.inv.sc=1;S.sel='c';S.cr.forEach(c=>c.u=false);S.pl.forEach(p=>{p.c=null;p.t=0});S.hv=0;P.x=800;P.y=720;save()}return S.odd}
 fresh=function(){let a=baseFresh();a.odd=initial();a.inv.sc=1;a.cr.forEach(c=>c.u=false);return a};
 function mesh(g,geo,col,x,y,z){let m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:col}));m.position.set(x,y,z);m.castShadow=true;g.add(m);return m}
 function figure(kind,col){let g=new THREE.Group();scene.add(g);let body=mesh(g,kind==='carrot'?new THREE.ConeGeometry(.47,1.25,8):new THREE.SphereGeometry(.55,12,8),col,0,.85,0);if(kind==='carrot')body.rotation.z=Math.PI;else body.scale.set(1,.85,1.2);
