@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 2.0.6 · Stable beds</title>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 2.0.7 · Bed orientation</title>
 <style>
 :root{--bg:#d9b3a8;--pn:#fbf0d2;--tx:#1d1a24;--ac:#c8472b;color-scheme:light dark;box-sizing:border-box}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--pn:#3a3224;--tx:#f6e9c6}}
@@ -370,7 +370,7 @@ function fitAsset(group,w,d,h){const box=new THREE.Box3().setFromObject(group),s
  if(oldHome){for(const c of [...oldHome.children])c.visible=false;const house=fitAsset(assetGroup(ASSET_HOUSE),9,7.6,7);house.rotation.y=Math.PI;house.name='ODDFARM_COTTAGE';oldHome.add(house)}
  /* 2) garden beds replace the plot boxes; crops sit on the real soil surface */
  const bed=fitAsset(assetGroup(ASSET_BED),3.7,3.7,3);BED_TOP=BED_SOIL_TOP_REL*bed.userData.k;
- PLM.forEach(m=>{for(const c of [...m.g.children])if(c.userData.originalBedBase)c.visible=false;const b=bed.clone(true);b.rotation.y=Math.PI;b.name='ODDFARM_BED';m.g.add(b);m.assetBed=b});
+ PLM.forEach(m=>{for(const c of [...m.g.children])if(c.userData.originalBedBase)c.visible=false;const b=bed.clone(true);b.rotation.y=0;b.name='ODDFARM_BED';m.g.add(b);m.assetBed=b});
  /* 3) floor built from the grass blocks: two instanced meshes (light/dark checker) + soil blocks along the edge */
  const mkGeo=t=>{const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(t.v,3));g.setAttribute('normal',new THREE.Float32BufferAttribute(t.n,3));g.setIndex(t.f);return g};
  const matOf=t=>new THREE.MeshLambertMaterial({color:new THREE.Color().setRGB(t.c[0],t.c[1],t.c[2])});
@@ -720,7 +720,7 @@ rushFinish=function(forfeit=false){actionOldFinish(forfeit);const shell=$('rushO
 /* Stable embedded Blender bed geometry. External GLB replacement disabled. */
 PLM.forEach(m=>{
   m.authoredBeds=null;
-  if(m.assetBed){m.assetBed.visible=true;m.assetBed.rotation.y=Math.PI;}
+  if(m.assetBed){m.assetBed.visible=true;m.assetBed.rotation.y=0;}
   else m.g.children.filter(c=>c.userData.originalBedBase).forEach(c=>c.visible=true);
 });
 /* ODDFARM Core prototype — isolated extension, existing authored assets retained. */
@@ -770,7 +770,7 @@ function recoverBeds(){
   m.g.position.set(X(PL[i][0]),.12,Z(PL[i][1]));
   if(m.assetBed){
    m.assetBed.visible=true;
-   m.assetBed.rotation.y=Math.PI;
+   m.assetBed.rotation.y=0;
   }else m.g.children.filter(c=>c.userData.originalBedBase).forEach(c=>c.visible=true);
  });
 }
@@ -799,5 +799,5 @@ requestAnimationFrame(loop);
  document.addEventListener('pointerdown',e=>{if(!menu.contains(e.target)&&!toggle.contains(e.target))setOpen(false)});
 })();
 </script>
-<div id="oddfarmBuildVersion" style="position:fixed;bottom:4px;right:8px;z-index:10000;color:white;background:#233b2c;border-radius:6px;padding:3px 6px;font:11px system-ui;pointer-events:none">ALPHA 2.0.6</div>
+<div id="oddfarmBuildVersion" style="position:fixed;bottom:4px;right:8px;z-index:10000;color:white;background:#233b2c;border-radius:6px;padding:3px 6px;font:11px system-ui;pointer-events:none">ALPHA 2.0.7</div>
 </body></html>
