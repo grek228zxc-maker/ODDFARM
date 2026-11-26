@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 1.8.1 · Blender beds fix</title>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 2.0 · Core Prototype</title>
 <style>
 :root{--bg:#d9b3a8;--pn:#fbf0d2;--tx:#1d1a24;--ac:#c8472b;color-scheme:light dark;box-sizing:border-box}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--pn:#3a3224;--tx:#f6e9c6}}
@@ -808,6 +808,46 @@ rushFinish=function(forfeit=false){actionOldFinish(forfeit);const shell=$('rushO
   report('Грядки 5/5 ✓');
  })
  .catch(e=>report('Грядки: '+String(e.message||e),true));
+})();
+
+
+/* ODDFARM Core prototype — isolated extension, existing authored assets retained. */
+(function(){
+const baseFresh=fresh, basePlot=plot, baseIT=IT, baseUpd=upd, baseSync=sync;
+const animals=[{n:'Кролик',x:1140,y:1010,color:0xe8d9bf},{n:'Курка',x:1450,y:970,color:0xffefce},{n:'Черепаха',x:2180,y:850,color:0x69a45d}];
+const names=[['Carrotbit','Pumpbit','Melonbit'],['Carrock','Pumpchick','Melonchick'],['Carrotle','Pumpkurtle','Melontle']];
+const keys=['c','p','m'];
+function initial(){return {intro:0,first:-1,lab:false,tamed:[],hybrids:[],dex:[],boss:false,hp:100,playerHP:100,nextHit:0,eventAt:Date.now()+90000,eventUntil:0,eventDone:false,giants:0,autoAt:0}}
+function ensure(){if(!S.odd){S.odd=initial();if(S.hv||S.pl.some(p=>p.c)){S.odd.intro=2}else {S.inv.sc=1;S.sel='c';S.cr.forEach(c=>c.u=false)}save()}return S.odd}
+fresh=function(){let a=baseFresh();a.odd=initial();a.inv.sc=1;a.cr.forEach(c=>c.u=false);return a};
+function mesh(g,geo,col,x,y,z){let m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:col}));m.position.set(x,y,z);m.castShadow=true;g.add(m);return m}
+function figure(kind,col){let g=new THREE.Group();scene.add(g);let body=mesh(g,kind==='carrot'?new THREE.ConeGeometry(.47,1.25,8):new THREE.SphereGeometry(.55,12,8),col,0,.85,0);if(kind==='carrot')body.rotation.z=Math.PI;else body.scale.set(1,.85,1.2);
+for(let sign of [-1,1]){mesh(g,new THREE.SphereGeometry(.065,8,6),0x29251c,sign*.19,.98,.46);let leg=mesh(g,new THREE.BoxGeometry(.17,.4,.18),col,sign*.23,.22,0);if(kind==='rabbit'){let ear=mesh(g,new THREE.SphereGeometry(.17,8,6),col,sign*.22,1.55,0);ear.scale.y=2.9}else if(kind==='carrot'||kind==='hybrid'){let leaf=mesh(g,new THREE.SphereGeometry(.16,8,6),0x529742,sign*.17,1.62,0);leaf.scale.y=2;leaf.rotation.z=sign*.45;mesh(g,new THREE.BoxGeometry(.35,.12,.12),col,sign*.5,.8,0)}}
+if(kind==='chicken')mesh(g,new THREE.ConeGeometry(.16,.3,6),0xe49e36,0,.83,.65).rotation.x=Math.PI/2;
+if(kind==='turtle')mesh(g,new THREE.SphereGeometry(.53,10,8),0x426f3c,0,1,-.15);
+return g}
+const helper=figure('carrot',0xf18c32), wild=animals.map((a,i)=>figure(['rabbit','chicken','turtle'][i],a.color)), hybridModels=new Map();
+let lab=new THREE.Group();scene.add(lab);mesh(lab,new THREE.BoxGeometry(2.8,.6,2.3),0x665478,0,.3,0);mesh(lab,new THREE.CylinderGeometry(.72,.72,1.7,12),0x91c5aa,0,1.35,0);mesh(lab,new THREE.BoxGeometry(.9,.25,1),0xeee5c9,1,.65,0);lab.position.set(X(1030),0,Z(970));
+const boss=figure('hybrid',0xe38a23);boss.scale.setScalar(3.5);boss.position.set(X(2390),0,Z(1000));
+let hx=P.x-50,hy=P.y+50;
+const panel=document.createElement('div');panel.style.cssText='position:fixed;left:12px;top:95px;z-index:7;max-width:210px;padding:9px;background:#fff1cfeF;color:#493321;border:2px solid #61432d;border-radius:12px;font:700 12px system-ui';document.body.appendChild(panel);
+const btn=document.createElement('button');btn.textContent='ODDDEX / LAB';btn.style.cssText='position:fixed;left:12px;top:190px;z-index:7;font-size:12px;background:#755499';document.body.appendChild(btn);
+const close='<button data-a="close">Закрити</button>';
+function say(t){M('<h2>🥕 Морквина</h2><p>'+t+'</p>'+close)}
+function guide(){let o=ensure();if(o.intro===2){say('Нарешті. Я вже думав, що ти не прийдеш. Купи насіння у крамниці, вирости ще моркву й знайди кролика. Лабораторія? Так, вона все ще тут.')}else say('Посади морквину, а потім повернись до грядки.')}
+plot=function(i){let o=ensure(),p=S.pl[i];if(o.intro===0){S.sel='c';if(p.c)return; basePlot(i);if(p.c){o.intro=1;o.first=i;save()}return}if(o.intro===1){if(i!==o.first){tz('Спочатку дочекайся першої морквини');return}if(!p.c||stage(p)!==3){tz('Морквина ще росте');return}p.c=null;o.intro=2;S.inv.sc+=3;S.inv.c+=1;S.cr[0].u=true;hx=PL[i][0];hy=PL[i][1]+50;save();guide();return}let ready=p.c&&stage(p)===3,k=p.c;const before=S.hv;basePlot(i);if(ready&&S.hv>before&&Math.random()<(Date.now()<o.eventUntil?.65:.12)){S.inv[k]+=3;o.giants++;tz('Гігантський урожай! +3 додатково');save()}};
+function tame(i){const o=ensure();if(o.tamed.includes(i))return;if(S.inv.c<1){tz('Потрібна зібрана морква');return}S.inv.c--;o.tamed.push(i);save();tz(animals[i].n+' тепер твій друг!')}
+function labMenu(){const o=ensure();if(o.intro<2){guide();return}if(!o.lab){M('<h2>Лабораторія</h2><p>Відновлення: 20 монет.</p><button data-odd="buildlab" '+(S.coin<20?'disabled':'')+'>Відновити</button>'+close);return}
+M('<h2>ODD LAB</h2><p>Генетичний зразок прирученої істоти + один овоч. Тварина не витрачається.</p><select id="oddAnimal">'+o.tamed.map(i=>'<option value="'+i+'">'+animals[i].n+'</option>').join('')+'</select><select id="oddCrop">'+keys.map(k=>'<option value="'+k+'">'+CR[k].n+' ('+S.inv[k]+')</option>').join('')+'</select><button data-odd="cross" '+(!o.tamed.length?'disabled':'')+'>Експеримент</button><p>'+o.hybrids.map(h=>h.n+' · '+(h.rare?'Rare':'Common')).join('<br>')+'</p><button data-odd="dex">ODDDEX</button>'+close)}
+function dex(){const o=ensure();M('<h2>ODDDEX · '+o.dex.length+'/9</h2><p>'+names.flat().map(n=>o.dex.includes(n)?'✓ '+n:'? Невідомий вид').join('<br>')+'</p><p>Гігантський урожай: '+o.giants+'</p><button data-odd="lab">Лабораторія</button>'+close)}
+btn.onclick=()=>{if(rushView==='closed')dex()};
+$('m').addEventListener('click',e=>{let b=e.target.closest('[data-odd]');if(!b)return;let o=ensure(),a=b.dataset.odd;if(a==='buildlab'&&S.coin>=20){S.coin-=20;o.lab=true;save();labMenu()}else if(a==='lab')labMenu();else if(a==='dex')dex();else if(a==='cross'){let i=Number($('oddAnimal').value),k=$('oddCrop').value;if(!o.tamed.includes(i)||!keys.includes(k)||S.inv[k]<1){tz('Потрібен овоч і приручена істота');return}S.inv[k]--;let n=names[i][keys.indexOf(k)];o.hybrids.push({id:Date.now(),n,i,k,rare:Math.random()<.15,job:false});if(!o.dex.includes(n))o.dex.push(n);save();M('<h2>Новий гібрид: '+n+'</h2><p>Знайди його на фермі біля лабораторії та признач на роботу.</p>'+close)}});
+function hybridMenu(h){M('<h2>'+h.n+'</h2><p>'+(h.rare?'Рідкісний':'Звичайний')+' гібрид. '+(h.i===0?'Збирає зрілий урожай.':h.i===1?'Допомагає в бою.':'Прискорює дозрівання.')+'</p><button id="oddJob">'+(h.job?'Відпочивати':'Активувати здібність')+'</button>'+close);$('oddJob').onclick=()=>{h.job=!h.job;save();hybridMenu(h)}}
+function hit(){let o=ensure(),now=Date.now();if(o.boss||now<o.nextHit)return;o.nextHit=now+850;o.hp=Math.max(0,o.hp-(o.hybrids.some(h=>h.i===1&&h.job)?24:12));if(!o.hp){o.boss=true;S.coin+=100;S.inv.sp+=3;tz('Pumpking переможено! +100 монет і 3 насінини')}else{o.playerHP-=12;if(o.playerHP<=0){P.x=800;P.y=720;o.playerHP=100;o.hp=100;tz('Ти повернувся на ферму')}else tz('Pumpking: '+o.hp+' HP · ти: '+o.playerHP)}save()}
+IT=function(){let o=ensure(),a=baseIT();if(o.intro<2)return a.filter(v=>PL.some(([x,y])=>v.x===x&&v.y===y+62));a.push({x:hx,y:hy,t:'Поговорити з морквиною',f:guide},{x:1030,y:1010,t:'ODD LAB',f:labMenu});animals.forEach((v,i)=>{if(!o.tamed.includes(i)&&(i!==2||S.explore.bridge))a.push({x:v.x,y:v.y,t:'Приручити: '+v.n,f:()=>tame(i)})});o.hybrids.forEach((h,i)=>a.push({x:950+(i%4)*65,y:1080+Math.floor(i/4)%2*50,t:h.n,f:()=>hybridMenu(h)}));if(S.explore.bridge&&!o.boss)a.push({x:2390,y:1000,t:'Атакувати Pumpking · '+o.hp+' HP',f:hit});return a};
+upd=function(dt){baseUpd(dt);let o=ensure();if(rushView!=='closed')return;let now=Date.now();if(o.intro===2){let dx=P.x-55-hx,dy=P.y+45-hy,d=Math.hypot(dx,dy);if(d>28){hx+=dx/d*Math.min(d,dt*175);hy+=dy/d*Math.min(d,dt*175);helper.rotation.y=Math.atan2(dx,dy)}if(!o.eventDone&&now>=o.eventAt){o.eventDone=true;o.eventUntil=now+60000;tz('День гігантів! Підвищений шанс великого врожаю');save()}if(now>o.autoAt){o.autoAt=now+4000;let h=o.hybrids.find(h=>h.job&&h.i===0),p=S.pl.find(p=>p.c&&stage(p)===3);if(h&&p){S.inv[p.c]++;S.hv++;p.c=null;save()}if(o.hybrids.some(h=>h.job&&h.i===2)){let p=S.pl.find(p=>p.c&&stage(p)<3);if(p)p.t-=2000}}}};
+sync=function(dt){baseSync(dt);let o=ensure(),show=rushView==='closed';panel.style.display=btn.style.display=show?'block':'none';panel.textContent=o.intro===0?'1. Посади першу морквину [E]':o.intro===1?'2. Дочекайся росту та збери [E]':!o.tamed.length?'3. Приручи кролика або курку морквою':!o.hybrids.length?'4. Відкрий лабораторію та створи гібрида':!o.boss?'5. Відкрий міст і переможи Pumpking':'Прототип пройдено! Продовжуй експерименти.';helper.visible=show&&o.intro===2;helper.position.set(X(hx),Math.abs(Math.sin(T*5))*.09,Z(hy));lab.visible=show&&o.intro===2;wild.forEach((g,i)=>{let a=animals[i];g.visible=show&&o.intro===2&&(i!==2||S.explore.bridge||o.tamed.includes(i));g.position.set(X(o.tamed.includes(i)?1120+i*65:a.x),0,Z(o.tamed.includes(i)?930:a.y))});for(let [id,g] of hybridModels)if(!o.hybrids.some(h=>h.id===id)){scene.remove(g);hybridModels.delete(id)}o.hybrids.forEach((h,i)=>{if(!hybridModels.has(h.id))hybridModels.set(h.id,figure('hybrid',h.rare?0xe8c94f:[0xf18c32,0xe5ad55,0x82b45e][keys.indexOf(h.k)]));let g=hybridModels.get(h.id);g.visible=show;g.position.set(X(950+(i%4)*65),Math.abs(Math.sin(T*3+i))*.12,Z(1080+Math.floor(i/4)%2*50))});boss.visible=show&&S.explore.bridge&&!o.boss;};
+ensure();
 })();
 
 function loop(n){requestAnimationFrame(loop);try{const dt=Math.min(.05,(n-last)/1000||0);last=n;T=n/1000;upd(dt);sync(dt);syncBeyond(dt);hudU();questHUD();rush3DFrame();renderer.render(scene,cam3)}catch(e){dbg(e.message)}}
