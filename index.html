@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 1.8.1 · власні блоки, будиночок і грядки</title>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>ODDFARM 3D — Alpha 1.8.1 · custom carrot growth beds</title>
 <style>
 :root{--bg:#d9b3a8;--pn:#fbf0d2;--tx:#1d1a24;--ac:#c8472b;color-scheme:light dark;box-sizing:border-box}
 @media(prefers-color-scheme:dark){:root:not([data-theme=light]){--pn:#3a3224;--tx:#f6e9c6}}
@@ -115,6 +115,8 @@ if(!window.THREE){
 }
 </script>
 
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>if(window.THREE && !THREE.GLTFLoader){document.write('<script src="https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js"><\/script>')}</script>
 <script>
 if(!window.THREE){document.body.innerHTML='<main style="padding:35px;max-width:680px;margin:10vh auto;background:#fff4db;color:#402818;border-radius:18px;font:18px/1.5 Arial,sans-serif"><h1>ODDFARM — не вдалося запустити 3D</h1><p>Браузер не зміг завантажити Three.js із жодного з трьох серверів. Перевір інтернет, вимкни блокувальник скриптів або спробуй інший браузер.</p><p>Це не помилка твоїх моделей GLB.</p></main>';throw new Error('Three.js unavailable from all three CDNs')}
 window.addEventListener('unhandledrejection',function(e){if(typeof dbg==='function')dbg('Promise: '+String(e.reason));});
@@ -418,7 +420,12 @@ function sync(dt){BLM.forEach((o,i)=>{o.house.visible=!!S.build[BUILD_SCENE[i].i
   const visualStage=!p.c?0:(p.c==='c'&&prog(p)>=1?3:(prog(p)>=.5?2:1));
   if(m.bedState!==visualStage){m.bedState=visualStage;if(m.bedModels)m.bedModels.forEach((bed,k)=>bed.visible=!m.assetBed && k===visualStage);}
   if(m.key!=p.c){m.crops.forEach(c=>m.g.remove(c));m.crops=[];m.key=p.c;if(p.c)for(let k=-1;k<2;k++){const c=cropMesh(p.c);c.position.set(k*1.0,BED_TOP,.05);m.g.add(c);m.crops.push(c)}}
-  if(p.c){const st=stage(p),q=prog(p);m.crops.forEach((c,k)=>{c.visible=true;const u=c.userData;u.mound.visible=false;u.lv.visible=st>=1;u.veg.visible=st>=2;u.face.visible=st==3;const sc=st==1?.45:st==2?.5+q*.4:1;u.lv.scale.setScalar(st==1?.6:st==2?.8:1);u.veg.scale.setScalar(sc);c.position.y=BED_TOP+(st==3?Math.abs(Math.sin(T*3+k))*.06:0);c.rotation.z=Math.sin(T*2+k+i)*.03})}});
+  if(m.authoredBeds){const q=p.c==='c'?prog(p):0,idx=p.c!=='c'?0:q>=1?4:q>=.7?3:q>=.3?2:1;
+   m.authoredBeds.forEach((bed,k)=>bed.visible=k===idx);
+   if(m.assetBed)m.assetBed.visible=false;
+   if(m.bedModels)m.bedModels.forEach(b=>b.visible=false);
+  }
+  if(p.c){const st=stage(p),q=prog(p);m.crops.forEach((c,k)=>{c.visible=!(m.authoredBeds&&p.c==='c');const u=c.userData;u.mound.visible=false;u.lv.visible=st>=1;u.veg.visible=st>=2;u.face.visible=st==3;const sc=st==1?.45:st==2?.5+q*.4:1;u.lv.scale.setScalar(st==1?.6:st==2?.8:1);u.veg.scale.setScalar(sc);c.position.y=BED_TOP+(st==3?Math.abs(Math.sin(T*3+k))*.06:0);c.rotation.z=Math.sin(T*2+k+i)*.03})}});
  TRM.forEach((t,i)=>{t.rotation.z=Math.sin(T*.8+i)*.025});
  SH.L.intensity=1.3+Math.sin(T*9)*.15+(S.ser>0?1:0);SH.ring.forEach((m,i)=>{m.material.opacity=.55+.15*Math.sin(T*2)+(S.ser>0?.3:0)});SH.hex.rotation.y=T*.2;SH.ban.forEach((b,i)=>{b.rotation.y=Math.sin(T*2+i*2)*.25});
  CRM.forEach((r,i)=>{const c=S.cr[i];r.g.visible=!!c.u;if(!c.u)return;const X0=X(c.x),Z0=Z(c.y),dx=X0-r.g.position.x,dz=Z0-r.g.position.z;if(Math.hypot(dx,dz)>.002){r.ang=Math.atan2(dx,dz)}r.g.position.x=X0;r.g.position.z=Z0;if(r.ang!==undefined){let a=r.ang-r.g.rotation.y;a=Math.atan2(Math.sin(a),Math.cos(a));r.g.rotation.y+=a*Math.min(1,dt*10)}
@@ -709,6 +716,41 @@ gwCard=function(idx,bot=false){if(!rush||rush.phase!=='playing')return;actionOld
 const actionOldFinish=rushFinish;
 rushFinish=function(forfeit=false){actionOldFinish(forfeit);const shell=$('rushOverlay').querySelector('.rushShell');if(shell){const p=shell.querySelector('p');if(p)p.insertAdjacentHTML('beforeend',`<p>🥬 Зібрано врожаю: ${rush.harvested} · Бот: ${rush.botHarvested}</p>`)}};
 
+/* ODDFARM Alpha 1.8.1 — five authored carrot bed stages. Original terrain / engine untouched. */
+(function loadAuthoredBeds(){
+ const oldModels=PLM.map(m=>m.assetBed);
+ if(!THREE.GLTFLoader){console.warn('[ODDFARM beds] GLTFLoader unavailable; keeping Claude beds');return}
+ const loader=new THREE.GLTFLoader();
+ loader.load('assets/base-crops-storage.glb',gltf=>{
+  try{
+   const groups=Array.from({length:5},()=>new THREE.Group());
+   gltf.scene.updateMatrixWorld(true);
+   gltf.scene.traverse(o=>{
+    if(!o.isMesh)return;
+    let n=o;while(n&&!/^ofpart_/.test(n.name))n=n.parent;
+    const hit=n&&/^ofpart_(\d+)_/.exec(n.name);
+    if(!hit)return;const idx=Number(hit[1]);if(idx<0||idx>=5)return;
+    const c=o.clone();o.matrixWorld.decompose(c.position,c.quaternion,c.scale);
+    c.castShadow=true;c.receiveShadow=true;
+    groups[idx].add(c);
+   });
+   if(groups.some(g=>!g.children.length))throw Error('Missing one or more bed stages');
+   const boxes=groups.map(g=>new THREE.Box3().setFromObject(g));
+   const baseSize=boxes[0].getSize(new THREE.Vector3());
+   const fit=Math.min(3.7/baseSize.x,3.7/baseSize.z,3/baseSize.y);
+   if(!Number.isFinite(fit)||fit<=0)throw Error('Invalid bed dimensions');
+   groups.forEach((g,i)=>{const b=boxes[i],center=b.getCenter(new THREE.Vector3());
+    g.scale.setScalar(fit);g.position.set(-center.x*fit,-b.min.y*fit,-center.z*fit);
+   });
+   PLM.forEach(m=>{m.authoredBeds=groups.map(g=>{const c=g.clone(true);c.visible=false;m.g.add(c);return c});
+    if(m.assetBed)m.assetBed.visible=false;
+   });
+   window.oddfarmBedsFiveReady=true;
+   console.info('[ODDFARM] Five Blender bed stages loaded');
+  }catch(err){console.warn('[ODDFARM beds] Failed to prepare stages',err);
+    PLM.forEach((m,i)=>{if(oldModels[i])oldModels[i].visible=true})}
+ },undefined,err=>console.warn('[ODDFARM beds] GLB unavailable; original Claude beds retained',err));
+})();
 function loop(n){requestAnimationFrame(loop);try{const dt=Math.min(.05,(n-last)/1000||0);last=n;T=n/1000;upd(dt);sync(dt);syncBeyond(dt);hudU();questHUD();rush3DFrame();renderer.render(scene,cam3)}catch(e){dbg(e.message)}}
 requestAnimationFrame(loop);
 
